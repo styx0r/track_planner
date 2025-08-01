@@ -2,7 +2,12 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+type Mutation {
+  switch: Int!
+}
+
 type Query {
   checkDbConnection: String!
+  getLightState: Int!
   hello: String!
 }
