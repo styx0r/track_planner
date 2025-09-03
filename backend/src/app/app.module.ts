@@ -9,6 +9,7 @@ import { DatabaseService } from './database.service';
 import { LightModule } from './light.module';
 import { LightResolver } from './light.resolver';
 import { LightService } from './light.service';
+import { MusicModule } from './music/music.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { LightService } from './light.service';
     }),
     DatabaseModule,
     LightModule,
+    MusicModule,
   ],
   providers: [AppResolver, DatabaseService, LightResolver, LightService],
 })

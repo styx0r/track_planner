@@ -30,4 +30,8 @@ export class DatabaseService implements OnModuleInit {
   get db(): Database {
     return this._db;
   }
+
+  getDatabase(): Database {
+    return this._db;
+  }
 }
