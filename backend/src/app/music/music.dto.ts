@@ -1,10 +1,18 @@
-import { InputType, ObjectType, Field, ID, registerEnumType } from '@nestjs/graphql';
+import {
+  InputType,
+  ObjectType,
+  Field,
+  ID,
+  registerEnumType,
+  Int,
+} from '@nestjs/graphql';
+import { IsString, IsOptional, IsEnum, IsNumber } from 'class-validator';
 
 export enum PresentationType {
   LIVE = 'LIVE',
   STUDIO = 'STUDIO',
   REMIX = 'REMIX',
-  ACOUSTIC = 'ACOUSTIC'
+  ACOUSTIC = 'ACOUSTIC',
 }
 
 export enum Genre {
@@ -17,8 +25,12 @@ export enum Genre {
   COUNTRY = 'COUNTRY',
   BLUES = 'BLUES',
   FOLK = 'FOLK',
-  OTHER = 'OTHER'
+  OTHER = 'OTHER',
 }
+
+// Register GraphQL enums
+registerEnumType(PresentationType, { name: 'PresentationType' });
+registerEnumType(Genre, { name: 'Genre' });
 
 @ObjectType()
 export class Music {
@@ -49,7 +61,7 @@ export class Music {
   @Field(() => Genre)
   genre: Genre;
 
-  @Field(() => Number, { nullable: true })
+  @Field(() => Int, { nullable: true })
   bpm?: number;
 
   @Field()
@@ -87,7 +99,7 @@ export class CreateMusicInput {
   @IsEnum(Genre)
   genre: Genre;
 
-  @Field(() => Number, { nullable: true })
+  @Field(() => Int, { nullable: true })
   @IsOptional()
   @IsNumber()
   bpm?: number;

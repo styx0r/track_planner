@@ -2,12 +2,85 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+input CreateMusicInput {
+  author: String!
+  bpm: Int
+  genre: Genre!
+  presentation_type: PresentationType!
+  subtitle: String
+  title: String!
+  version: String
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+enum Genre {
+  BLUES
+  CLASSICAL
+  COUNTRY
+  ELECTRONIC
+  FOLK
+  HIP_HOP
+  JAZZ
+  OTHER
+  POP
+  ROCK
+}
+
+type Music {
+  author: String!
+  bpm: Int
+  creation_timestamp: DateTime!
+  file_name: String!
+  file_url: String!
+  genre: Genre!
+  presentation_type: PresentationType!
+  subtitle: String
+  title: String!
+  uid: ID!
+  update_timestamp: DateTime!
+  version: String
+}
+
+input MusicSearchInput {
+  author: String
+  genre: Genre
+  presentation_type: PresentationType
+  title: String
+}
+
 type Mutation {
+  createMusic(createMusicInput: CreateMusicInput!): Music!
+  deleteMusic(uid: String!): Boolean!
   switch: Int!
+  updateMusic(updateMusicInput: UpdateMusicInput!): Music!
+}
+
+enum PresentationType {
+  ACOUSTIC
+  LIVE
+  REMIX
+  STUDIO
 }
 
 type Query {
   checkDbConnection: String!
   getLightState: Int!
+  getMusicById(uid: String!): Music!
   hello: String!
+  searchMusic(searchInput: MusicSearchInput): [Music!]!
+}
+
+input UpdateMusicInput {
+  author: String
+  bpm: Float
+  genre: Genre
+  presentation_type: PresentationType
+  subtitle: String
+  title: String
+  uid: ID!
+  version: String
 }
