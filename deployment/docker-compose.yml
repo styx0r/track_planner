@@ -12,5 +12,20 @@ services:
     volumes:
       - arangodb_data:/var/lib/arangodb3
 
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    restart: always
+    environment:
+      # Align with backend/.env_template values
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    command: server /data --address ":9000"
+    ports:
+      - '9000:9000'
+    volumes:
+      - minio_data:/data
+
 volumes:
   arangodb_data:
+  minio_data:
