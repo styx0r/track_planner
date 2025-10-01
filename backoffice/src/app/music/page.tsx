@@ -104,6 +104,10 @@ export default function MusicManagement() {
   const [searchFilters, setSearchFilters] = useState<SearchFilters>({});
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
 
+  // Audio player state
+  const [currentlyPlaying, setCurrentlyPlaying] = useState<string | null>(null);
+  const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
+
   // Form states
   const [uploadForm, setUploadForm] = useState<CreateMusicInput>({
     title: '',
@@ -294,8 +298,48 @@ export default function MusicManagement() {
     }
   };
 
+  // Play/Pause audio
+  const handlePlayPause = (uid: string, fileUrl: string) => {
+    if (currentlyPlaying === uid) {
+      // Pause current audio
+      audioElement?.pause();
+      setCurrentlyPlaying(null);
+    } else {
+      // Stop previous audio if any
+      if (audioElement) {
+        audioElement.pause();
+      }
+
+      // Play new audio
+      const audio = new Audio(fileUrl);
+      audio.play();
+      setAudioElement(audio);
+      setCurrentlyPlaying(uid);
+
+      // Handle audio end
+      audio.onended = () => {
+        setCurrentlyPlaying(null);
+      };
+    }
+  };
+
   // DataGrid columns
   const columns: GridColDef[] = [
+    {
+      field: 'play',
+      headerName: 'Play',
+      width: 70,
+      sortable: false,
+      renderCell: (params) => (
+        <IconButton
+          color="primary"
+          onClick={() => handlePlayPause(params.row.uid, params.row.file_url)}
+          size="small"
+        >
+          {currentlyPlaying === params.row.uid ? <Pause /> : <PlayArrow />}
+        </IconButton>
+      )
+    },
     { field: 'title', headerName: 'Title', width: 200, editable: false },
     { field: 'subtitle', headerName: 'Subtitle', width: 150, editable: false },
     { field: 'author', headerName: 'Author', width: 150, editable: false },
