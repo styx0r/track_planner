@@ -5,6 +5,7 @@ import {
   ID,
   registerEnumType,
   Int,
+  GraphQLISODateTime,
 } from '@nestjs/graphql';
 import { IsString, IsOptional, IsEnum, IsNumber } from 'class-validator';
 
@@ -35,47 +36,56 @@ registerEnumType(Genre, { name: 'Genre' });
 @ObjectType()
 export class Music {
   @Field(() => ID)
-  uid: string;
+  uid!: string;
+
+  @Field(() => GraphQLISODateTime)
+  creation_timestamp!: Date;
+
+  @Field(() => GraphQLISODateTime)
+  update_timestamp!: Date;
 
   @Field()
-  creation_timestamp: Date;
-
-  @Field()
-  update_timestamp: Date;
-
-  @Field()
-  title: string;
+  title!: string;
 
   @Field({ nullable: true })
   subtitle?: string;
 
   @Field()
-  author: string;
+  author!: string;
 
   @Field({ nullable: true })
   version?: string;
 
   @Field(() => PresentationType)
-  presentation_type: PresentationType;
+  presentation_type!: PresentationType;
 
   @Field(() => Genre)
-  genre: Genre;
+  genre!: Genre;
 
   @Field(() => Int, { nullable: true })
   bpm?: number;
 
-  @Field()
-  file_url: string;
+  @Field({ nullable: true })
+  lyrics?: string;
 
   @Field()
-  file_name: string;
+  file_url!: string;
+
+  @Field()
+  file_name!: string;
+
+  @Field({ nullable: true })
+  sheet_music_url?: string;
+
+  @Field({ nullable: true })
+  sheet_music_name?: string;
 }
 
 @InputType()
 export class CreateMusicInput {
   @Field()
   @IsString()
-  title: string;
+  title!: string;
 
   @Field({ nullable: true })
   @IsOptional()
@@ -84,7 +94,7 @@ export class CreateMusicInput {
 
   @Field()
   @IsString()
-  author: string;
+  author!: string;
 
   @Field({ nullable: true })
   @IsOptional()
@@ -93,23 +103,28 @@ export class CreateMusicInput {
 
   @Field(() => PresentationType)
   @IsEnum(PresentationType)
-  presentation_type: PresentationType;
+  presentation_type!: PresentationType;
 
   @Field(() => Genre)
   @IsEnum(Genre)
-  genre: Genre;
+  genre!: Genre;
 
   @Field(() => Int, { nullable: true })
   @IsOptional()
   @IsNumber()
   bpm?: number;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  lyrics?: string;
 }
 
 @InputType()
 export class UpdateMusicInput {
   @Field(() => ID)
   @IsString()
-  uid: string;
+  uid!: string;
 
   @Field({ nullable: true })
   @IsOptional()
@@ -145,6 +160,11 @@ export class UpdateMusicInput {
   @IsOptional()
   @IsNumber()
   bpm?: number;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  lyrics?: string;
 }
 
 @InputType()

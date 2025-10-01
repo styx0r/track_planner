@@ -17,10 +17,20 @@ export class MusicService {
   async createMusic(
     createMusicInput: CreateMusicInput,
     file: Express.Multer.File,
+    sheetMusicFile?: Express.Multer.File,
   ): Promise<Music> {
     try {
-      // Upload file to Minio
+      // Upload audio file to Minio
       const { fileName, url } = await this.minioService.uploadFile(file);
+
+      // Upload sheet music if provided
+      let sheetMusicFileName: string | undefined;
+      let sheetMusicUrl: string | undefined;
+      if (sheetMusicFile) {
+        const sheetMusic = await this.minioService.uploadSheetMusic(sheetMusicFile);
+        sheetMusicFileName = sheetMusic.fileName;
+        sheetMusicUrl = sheetMusic.url;
+      }
 
       // Create music document
       const musicData = {
@@ -29,14 +39,16 @@ export class MusicService {
         update_timestamp: new Date(),
         file_url: url,
         file_name: fileName,
+        sheet_music_url: sheetMusicUrl,
+        sheet_music_name: sheetMusicFileName,
         ...createMusicInput,
       };
 
       const db = this.databaseService.getDatabase();
       const collection = db.collection(this.collectionName);
-      
+
       await collection.save(musicData);
-      
+
       this.logger.log(`Music created successfully: ${musicData.uid}`);
       return musicData as Music;
     } catch (error) {
@@ -78,9 +90,14 @@ export class MusicService {
       // Fetch updated document
       const updatedDoc = await collection.document(existingDoc._key);
       
-      // Refresh file URL
+      // Refresh file URLs
       const refreshedUrl = await this.minioService.getFileUrl(updatedDoc.file_name);
       updatedDoc.file_url = refreshedUrl;
+
+      if (updatedDoc.sheet_music_name) {
+        const refreshedSheetMusicUrl = await this.minioService.getFileUrl(updatedDoc.sheet_music_name);
+        updatedDoc.sheet_music_url = refreshedSheetMusicUrl;
+      }
 
       this.logger.log(`Music updated successfully: ${updateMusicInput.uid}`);
       return updatedDoc as Music;
@@ -136,7 +153,14 @@ export class MusicService {
         documents.map(async (doc) => {
           try {
             const refreshedUrl = await this.minioService.getFileUrl(doc.file_name);
-            return { ...doc, file_url: refreshedUrl } as Music;
+            const updatedDoc = { ...doc, file_url: refreshedUrl };
+
+            if (doc.sheet_music_name) {
+              const refreshedSheetMusicUrl = await this.minioService.getFileUrl(doc.sheet_music_name);
+              updatedDoc.sheet_music_url = refreshedSheetMusicUrl;
+            }
+
+            return updatedDoc as Music;
           } catch (error) {
             this.logger.warn(`Could not refresh URL for file: ${doc.file_name}`);
             return doc as Music;
@@ -164,10 +188,15 @@ export class MusicService {
       }
 
       const doc = documents[0];
-      
-      // Refresh file URL
+
+      // Refresh file URLs
       const refreshedUrl = await this.minioService.getFileUrl(doc.file_name);
       doc.file_url = refreshedUrl;
+
+      if (doc.sheet_music_name) {
+        const refreshedSheetMusicUrl = await this.minioService.getFileUrl(doc.sheet_music_name);
+        doc.sheet_music_url = refreshedSheetMusicUrl;
+      }
 
       return doc as Music;
     } catch (error) {
@@ -190,10 +219,13 @@ export class MusicService {
       }
 
       const doc = documents[0];
-      
-      // Delete file from Minio
+
+      // Delete files from Minio
       await this.minioService.deleteFile(doc.file_name);
-      
+      if (doc.sheet_music_name) {
+        await this.minioService.deleteFile(doc.sheet_music_name);
+      }
+
       // Delete document from database
       await collection.remove(doc._key);
       

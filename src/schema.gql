@@ -6,6 +6,7 @@ input CreateMusicInput {
   author: String!
   bpm: Int
   genre: Genre!
+  lyrics: String
   presentation_type: PresentationType!
   subtitle: String
   title: String!
@@ -37,7 +38,10 @@ type Music {
   file_name: String!
   file_url: String!
   genre: Genre!
+  lyrics: String
   presentation_type: PresentationType!
+  sheet_music_name: String
+  sheet_music_url: String
   subtitle: String
   title: String!
   uid: ID!
@@ -78,6 +82,7 @@ input UpdateMusicInput {
   author: String
   bpm: Float
   genre: Genre
+  lyrics: String
   presentation_type: PresentationType
   subtitle: String
   title: String

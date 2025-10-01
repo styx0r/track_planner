@@ -1,18 +1,5 @@
 import './global.css';
-import { ThemeProvider } from '@mui/material/styles';
-import { CssBaseline, createTheme } from '@mui/material';
-
-const theme = createTheme({
-  palette: {
-    mode: 'light',
-    primary: {
-      main: '#1976d2',
-    },
-    secondary: {
-      main: '#dc004e',
-    },
-  },
-});
+import ThemeRegistry from './ThemeRegistry';
 
 export const metadata = {
   title: 'Track Planner - Backoffice',
@@ -27,10 +14,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <ThemeProvider theme={theme}>
-          <CssBaseline />
+        <ThemeRegistry>
           {children}
-        </ThemeProvider>
+        </ThemeRegistry>
       </body>
     </html>
   );

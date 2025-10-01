@@ -11,7 +11,7 @@ import {
   Button,
   Grid
 } from '@mui/material';
-import { MusicNote, Dashboard, Upload } from '@mui/icons-material';
+import { MusicNote, Dashboard } from '@mui/icons-material';
 import Link from 'next/link';
 
 export default function BackofficeHome() {
@@ -63,27 +63,6 @@ export default function BackofficeHome() {
               <Button variant="outlined" startIcon={<Dashboard />} disabled>
                 Coming Soon
               </Button>
-            </CardActions>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={4}>
-          <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <CardContent sx={{ flexGrow: 1, textAlign: 'center' }}>
-              <Upload sx={{ fontSize: 60, color: 'success.main', mb: 2 }} />
-              <Typography variant="h5" component="h2" gutterBottom>
-                Quick Upload
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Quickly upload new music files to your library with automatic metadata detection.
-              </Typography>
-            </CardContent>
-            <CardActions sx={{ justifyContent: 'center', pb: 2 }}>
-              <Link href="/music" passHref>
-                <Button variant="contained" color="success" startIcon={<Upload />}>
-                  Upload Music
-                </Button>
-              </Link>
             </CardActions>
           </Card>
         </Grid>

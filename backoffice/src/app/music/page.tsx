@@ -48,10 +48,13 @@ interface Music {
   presentation_type: PresentationType;
   genre: Genre;
   bpm?: number;
+  lyrics?: string;
   creation_timestamp: string;
   update_timestamp: string;
   file_url: string;
   file_name: string;
+  sheet_music_url?: string;
+  sheet_music_name?: string;
 }
 
 enum PresentationType {
@@ -82,6 +85,7 @@ interface CreateMusicInput {
   presentation_type: PresentationType;
   genre: Genre;
   bpm?: number;
+  lyrics?: string;
 }
 
 interface SearchFilters {
@@ -108,6 +112,7 @@ export default function MusicManagement() {
     genre: Genre.OTHER
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedSheetMusic, setSelectedSheetMusic] = useState<File | null>(null);
 
   // Load music data
   const loadMusic = async () => {
@@ -128,10 +133,13 @@ export default function MusicManagement() {
                 presentation_type
                 genre
                 bpm
+                lyrics
                 creation_timestamp
                 update_timestamp
                 file_url
                 file_name
+                sheet_music_url
+                sheet_music_name
               }
             }
           `,
@@ -159,12 +167,15 @@ export default function MusicManagement() {
   // Upload music
   const handleUpload = async () => {
     if (!selectedFile) {
-      setSnackbar({ open: true, message: 'Please select a file', severity: 'error' });
+      setSnackbar({ open: true, message: 'Please select an audio file', severity: 'error' });
       return;
     }
 
     const formData = new FormData();
     formData.append('file', selectedFile);
+    if (selectedSheetMusic) {
+      formData.append('sheetMusic', selectedSheetMusic);
+    }
     formData.append('operations', JSON.stringify({
       query: `
         mutation CreateMusic($createMusicInput: CreateMusicInput!) {
@@ -198,6 +209,7 @@ export default function MusicManagement() {
         genre: Genre.OTHER
       });
       setSelectedFile(null);
+      setSelectedSheetMusic(null);
       loadMusic();
     } catch (error) {
       setSnackbar({ open: true, message: `Upload failed: ${error}`, severity: 'error' });
@@ -231,7 +243,8 @@ export default function MusicManagement() {
               version: selectedMusic.version,
               presentation_type: selectedMusic.presentation_type,
               genre: selectedMusic.genre,
-              bpm: selectedMusic.bpm
+              bpm: selectedMusic.bpm,
+              lyrics: selectedMusic.lyrics
             }
           }
         })
@@ -287,23 +300,41 @@ export default function MusicManagement() {
     { field: 'subtitle', headerName: 'Subtitle', width: 150, editable: false },
     { field: 'author', headerName: 'Author', width: 150, editable: false },
     { field: 'version', headerName: 'Version', width: 100, editable: false },
-    { 
-      field: 'genre', 
-      headerName: 'Genre', 
+    {
+      field: 'genre',
+      headerName: 'Genre',
       width: 120,
       renderCell: (params) => (
         <Chip label={params.value} size="small" color="primary" />
       )
     },
-    { 
-      field: 'presentation_type', 
-      headerName: 'Type', 
+    {
+      field: 'presentation_type',
+      headerName: 'Type',
       width: 100,
       renderCell: (params) => (
         <Chip label={params.value} size="small" color="secondary" />
       )
     },
     { field: 'bpm', headerName: 'BPM', width: 80, type: 'number' },
+    {
+      field: 'sheet_music_name',
+      headerName: 'Sheet Music',
+      width: 120,
+      renderCell: (params) => (
+        params.value ? (
+          <Chip
+            label="Available"
+            size="small"
+            color="success"
+            onClick={() => window.open(params.row.sheet_music_url, '_blank')}
+            style={{ cursor: 'pointer' }}
+          />
+        ) : (
+          <Chip label="None" size="small" variant="outlined" />
+        )
+      )
+    },
     {
       field: 'actions',
       type: 'actions',
@@ -523,6 +554,33 @@ export default function MusicManagement() {
                 onChange={(e) => setUploadForm({ ...uploadForm, bpm: parseInt(e.target.value) || undefined })}
               />
             </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Lyrics (Liedtext)"
+                multiline
+                rows={4}
+                value={uploadForm.lyrics || ''}
+                onChange={(e) => setUploadForm({ ...uploadForm, lyrics: e.target.value })}
+                placeholder="Enter song lyrics here..."
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <Button
+                variant="outlined"
+                component="label"
+                fullWidth
+                startIcon={<CloudUpload />}
+              >
+                {selectedSheetMusic ? selectedSheetMusic.name : 'Upload Sheet Music (Optional)'}
+                <input
+                  type="file"
+                  hidden
+                  accept=".pdf,.png,.jpg,.jpeg"
+                  onChange={(e) => setSelectedSheetMusic(e.target.files?.[0] || null)}
+                />
+              </Button>
+            </Grid>
           </Grid>
         </DialogContent>
         <DialogActions>
@@ -608,6 +666,27 @@ export default function MusicManagement() {
                   onChange={(e) => setSelectedMusic({ ...selectedMusic, bpm: parseInt(e.target.value) || undefined })}
                 />
               </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Lyrics (Liedtext)"
+                  multiline
+                  rows={4}
+                  value={selectedMusic.lyrics || ''}
+                  onChange={(e) => setSelectedMusic({ ...selectedMusic, lyrics: e.target.value })}
+                  placeholder="Enter song lyrics here..."
+                />
+              </Grid>
+              {selectedMusic.sheet_music_name && (
+                <Grid item xs={12}>
+                  <Chip
+                    label={`Sheet Music: ${selectedMusic.sheet_music_name}`}
+                    color="success"
+                    onClick={() => window.open(selectedMusic.sheet_music_url, '_blank')}
+                    style={{ cursor: 'pointer' }}
+                  />
+                </Grid>
+              )}
             </Grid>
           )}
         </DialogContent>
