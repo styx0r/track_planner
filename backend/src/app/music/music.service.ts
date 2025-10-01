@@ -63,9 +63,15 @@ export class MusicService {
       const collection = db.collection(this.collectionName);
 
       // Find existing document
-      const cursor = await collection.byExample({ uid: updateMusicInput.uid });
+      const cursor = await db.query(
+        'FOR doc IN @@collection FILTER doc.uid == @uid RETURN doc',
+        {
+          '@collection': this.collectionName,
+          uid: updateMusicInput.uid,
+        }
+      );
       const documents = await cursor.all();
-      
+
       if (documents.length === 0) {
         throw new NotFoundException(`Music with UID ${updateMusicInput.uid} not found`);
       }
@@ -89,18 +95,23 @@ export class MusicService {
       
       // Fetch updated document
       const updatedDoc = await collection.document(existingDoc._key);
-      
-      // Refresh file URLs
+
+      // Refresh file URLs and convert timestamps
       const refreshedUrl = await this.minioService.getFileUrl(updatedDoc.file_name);
-      updatedDoc.file_url = refreshedUrl;
+      const result = {
+        ...updatedDoc,
+        file_url: refreshedUrl,
+        creation_timestamp: new Date(updatedDoc.creation_timestamp),
+        update_timestamp: new Date(updatedDoc.update_timestamp),
+      };
 
       if (updatedDoc.sheet_music_name) {
         const refreshedSheetMusicUrl = await this.minioService.getFileUrl(updatedDoc.sheet_music_name);
-        updatedDoc.sheet_music_url = refreshedSheetMusicUrl;
+        result.sheet_music_url = refreshedSheetMusicUrl;
       }
 
       this.logger.log(`Music updated successfully: ${updateMusicInput.uid}`);
-      return updatedDoc as Music;
+      return result as Music;
     } catch (error) {
       this.logger.error(`Error updating music: ${error.message}`);
       throw error;
@@ -153,7 +164,12 @@ export class MusicService {
         documents.map(async (doc) => {
           try {
             const refreshedUrl = await this.minioService.getFileUrl(doc.file_name);
-            const updatedDoc = { ...doc, file_url: refreshedUrl };
+            const updatedDoc = {
+              ...doc,
+              file_url: refreshedUrl,
+              creation_timestamp: new Date(doc.creation_timestamp),
+              update_timestamp: new Date(doc.update_timestamp),
+            };
 
             if (doc.sheet_music_name) {
               const refreshedSheetMusicUrl = await this.minioService.getFileUrl(doc.sheet_music_name);
@@ -178,27 +194,37 @@ export class MusicService {
   async getMusicById(uid: string): Promise<Music> {
     try {
       const db = this.databaseService.getDatabase();
-      const collection = db.collection(this.collectionName);
 
-      const cursor = await collection.byExample({ uid });
+      const cursor = await db.query(
+        'FOR doc IN @@collection FILTER doc.uid == @uid RETURN doc',
+        {
+          '@collection': this.collectionName,
+          uid: uid,
+        }
+      );
       const documents = await cursor.all();
-      
+
       if (documents.length === 0) {
         throw new NotFoundException(`Music with UID ${uid} not found`);
       }
 
       const doc = documents[0];
 
-      // Refresh file URLs
+      // Refresh file URLs and convert timestamps
       const refreshedUrl = await this.minioService.getFileUrl(doc.file_name);
-      doc.file_url = refreshedUrl;
+      const result = {
+        ...doc,
+        file_url: refreshedUrl,
+        creation_timestamp: new Date(doc.creation_timestamp),
+        update_timestamp: new Date(doc.update_timestamp),
+      };
 
       if (doc.sheet_music_name) {
         const refreshedSheetMusicUrl = await this.minioService.getFileUrl(doc.sheet_music_name);
-        doc.sheet_music_url = refreshedSheetMusicUrl;
+        result.sheet_music_url = refreshedSheetMusicUrl;
       }
 
-      return doc as Music;
+      return result as Music;
     } catch (error) {
       this.logger.error(`Error getting music by ID: ${error.message}`);
       throw error;
@@ -211,9 +237,15 @@ export class MusicService {
       const collection = db.collection(this.collectionName);
 
       // Find existing document
-      const cursor = await collection.byExample({ uid });
+      const cursor = await db.query(
+        'FOR doc IN @@collection FILTER doc.uid == @uid RETURN doc',
+        {
+          '@collection': this.collectionName,
+          uid: uid,
+        }
+      );
       const documents = await cursor.all();
-      
+
       if (documents.length === 0) {
         throw new NotFoundException(`Music with UID ${uid} not found`);
       }

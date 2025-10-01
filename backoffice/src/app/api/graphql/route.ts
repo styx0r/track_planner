@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
       });
 
       // Use REST endpoint instead of GraphQL for file uploads
-      const response = await fetch(`${BACKEND_URL}/music/upload`, {
+      const response = await fetch(`${BACKEND_URL}/api/music/upload`, {
         method: 'POST',
         body: backendFormData,
       });
