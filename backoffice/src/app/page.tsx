@@ -27,7 +27,7 @@ export default function BackofficeHome() {
       </Box>
 
       <Grid container spacing={4} justifyContent="center">
-        <Grid item xs={12} sm={6} md={4}>
+        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
           <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             <CardContent sx={{ flexGrow: 1, textAlign: 'center' }}>
               <MusicNote sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
@@ -48,7 +48,7 @@ export default function BackofficeHome() {
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={4}>
+        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
           <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             <CardContent sx={{ flexGrow: 1, textAlign: 'center' }}>
               <Dashboard sx={{ fontSize: 60, color: 'secondary.main', mb: 2 }} />

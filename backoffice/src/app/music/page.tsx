@@ -19,9 +19,6 @@ import {
   Alert,
   Snackbar,
   Grid,
-  Card,
-  CardContent,
-  CardActions,
   Chip,
   IconButton,
   Fab
@@ -33,8 +30,7 @@ import {
   Delete,
   Add,
   PlayArrow,
-  Pause,
-  MusicNote
+  Pause
 } from '@mui/icons-material';
 import { DataGrid, GridColDef, GridActionsCellItem } from '@mui/x-data-grid';
 
@@ -421,7 +417,7 @@ export default function MusicManagement() {
           Search & Filter
         </Typography>
         <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} sm={3}>
+          <Grid size={{ xs: 12, sm: 3 }}>
             <TextField
               fullWidth
               label="Title"
@@ -429,7 +425,7 @@ export default function MusicManagement() {
               onChange={(e) => setSearchFilters({ ...searchFilters, title: e.target.value })}
             />
           </Grid>
-          <Grid item xs={12} sm={3}>
+          <Grid size={{ xs: 12, sm: 3 }}>
             <TextField
               fullWidth
               label="Author"
@@ -437,7 +433,7 @@ export default function MusicManagement() {
               onChange={(e) => setSearchFilters({ ...searchFilters, author: e.target.value })}
             />
           </Grid>
-          <Grid item xs={12} sm={2}>
+          <Grid size={{ xs: 12, sm: 2 }}>
             <FormControl fullWidth>
               <InputLabel>Genre</InputLabel>
               <Select
@@ -452,7 +448,7 @@ export default function MusicManagement() {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} sm={2}>
+          <Grid size={{ xs: 12, sm: 2 }}>
             <FormControl fullWidth>
               <InputLabel>Type</InputLabel>
               <Select
@@ -467,7 +463,7 @@ export default function MusicManagement() {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} sm={2}>
+          <Grid size={{ xs: 12, sm: 2 }}>
             <Button
               fullWidth
               variant="outlined"
@@ -510,7 +506,7 @@ export default function MusicManagement() {
         <DialogTitle>Upload New Music</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Button
                 variant="outlined"
                 component="label"
@@ -527,7 +523,7 @@ export default function MusicManagement() {
                 />
               </Button>
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 label="Title"
@@ -536,7 +532,7 @@ export default function MusicManagement() {
                 onChange={(e) => setUploadForm({ ...uploadForm, title: e.target.value })}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 label="Subtitle"
@@ -544,7 +540,7 @@ export default function MusicManagement() {
                 onChange={(e) => setUploadForm({ ...uploadForm, subtitle: e.target.value })}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 label="Author"
@@ -553,7 +549,7 @@ export default function MusicManagement() {
                 onChange={(e) => setUploadForm({ ...uploadForm, author: e.target.value })}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 label="Version"
@@ -561,7 +557,7 @@ export default function MusicManagement() {
                 onChange={(e) => setUploadForm({ ...uploadForm, version: e.target.value })}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <FormControl fullWidth>
                 <InputLabel>Genre</InputLabel>
                 <Select
@@ -575,7 +571,7 @@ export default function MusicManagement() {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <FormControl fullWidth>
                 <InputLabel>Presentation Type</InputLabel>
                 <Select
@@ -589,7 +585,7 @@ export default function MusicManagement() {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 fullWidth
                 label="BPM"
@@ -598,7 +594,7 @@ export default function MusicManagement() {
                 onChange={(e) => setUploadForm({ ...uploadForm, bpm: parseInt(e.target.value) || undefined })}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 fullWidth
                 label="Lyrics (Liedtext)"
@@ -609,7 +605,7 @@ export default function MusicManagement() {
                 placeholder="Enter song lyrics here..."
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Button
                 variant="outlined"
                 component="label"
@@ -639,7 +635,7 @@ export default function MusicManagement() {
         <DialogContent>
           {selectedMusic && (
             <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   label="Title"
@@ -648,7 +644,7 @@ export default function MusicManagement() {
                   onChange={(e) => setSelectedMusic({ ...selectedMusic, title: e.target.value })}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   label="Subtitle"
@@ -656,7 +652,7 @@ export default function MusicManagement() {
                   onChange={(e) => setSelectedMusic({ ...selectedMusic, subtitle: e.target.value })}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   label="Author"
@@ -665,7 +661,7 @@ export default function MusicManagement() {
                   onChange={(e) => setSelectedMusic({ ...selectedMusic, author: e.target.value })}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   label="Version"
@@ -673,7 +669,7 @@ export default function MusicManagement() {
                   onChange={(e) => setSelectedMusic({ ...selectedMusic, version: e.target.value })}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <FormControl fullWidth>
                   <InputLabel>Genre</InputLabel>
                   <Select
@@ -687,7 +683,7 @@ export default function MusicManagement() {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <FormControl fullWidth>
                   <InputLabel>Presentation Type</InputLabel>
                   <Select
@@ -701,7 +697,7 @@ export default function MusicManagement() {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <TextField
                   fullWidth
                   label="BPM"
@@ -710,7 +706,7 @@ export default function MusicManagement() {
                   onChange={(e) => setSelectedMusic({ ...selectedMusic, bpm: parseInt(e.target.value) || undefined })}
                 />
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <TextField
                   fullWidth
                   label="Lyrics (Liedtext)"
@@ -722,7 +718,7 @@ export default function MusicManagement() {
                 />
               </Grid>
               {selectedMusic.sheet_music_name && (
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <Chip
                     label={`Sheet Music: ${selectedMusic.sheet_music_name}`}
                     color="success"
