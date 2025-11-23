@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import {
   Box,
   Container,
@@ -54,6 +54,15 @@ interface Music {
   sheet_music_name?: string;
 }
 
+interface MusicTableProps {
+  rows: Music[];
+  loading: boolean;
+  currentlyPlaying: string | null;
+  onPlayPause: (uid: string, fileUrl: string) => void;
+  onEdit: (row: Music) => void;
+  onDelete: (uid: string) => void;
+}
+
 enum PresentationType {
   LIVE = 'LIVE',
   STUDIO = 'STUDIO',
@@ -105,12 +114,127 @@ interface SearchFilters {
   presentation_type?: PresentationType;
 }
 
+interface EditMusicMetadata {
+  uid: string;
+  title: string;
+  subtitle?: string;
+  author: string;
+  version?: string;
+  presentation_type: PresentationType;
+  genre: Genre;
+  bpm?: number;
+}
+
+const MusicTable = memo(function MusicTable({
+  rows,
+  loading,
+  currentlyPlaying,
+  onPlayPause,
+  onEdit,
+  onDelete
+}: MusicTableProps) {
+  const columns = useMemo<GridColDef[]>(() => [
+    {
+      field: 'play',
+      headerName: 'Play',
+      width: 70,
+      sortable: false,
+      renderCell: (params) => (
+        <IconButton
+          color="primary"
+          onClick={() => onPlayPause(params.row.uid, params.row.file_url)}
+          size="small"
+        >
+          {currentlyPlaying === params.row.uid ? <Pause /> : <PlayArrow />}
+        </IconButton>
+      )
+    },
+    { field: 'title', headerName: 'Title', width: 200, editable: false },
+    { field: 'subtitle', headerName: 'Subtitle', width: 150, editable: false },
+    { field: 'author', headerName: 'Author', width: 150, editable: false },
+    { field: 'version', headerName: 'Version', width: 100, editable: false },
+    {
+      field: 'genre',
+      headerName: 'Genre',
+      width: 120,
+      renderCell: (params) => (
+        <Chip label={params.value} size="small" color="primary" />
+      )
+    },
+    {
+      field: 'presentation_type',
+      headerName: 'Type',
+      width: 100,
+      renderCell: (params) => (
+        <Chip label={params.value} size="small" color="secondary" />
+      )
+    },
+    { field: 'bpm', headerName: 'BPM', width: 80, type: 'number' },
+    {
+      field: 'sheet_music_name',
+      headerName: 'Sheet Music',
+      width: 120,
+      renderCell: (params) => (
+        params.value ? (
+          <Chip
+            label="Available"
+            size="small"
+            color="success"
+            onClick={() => window.open(params.row.sheet_music_url, '_blank')}
+            style={{ cursor: 'pointer' }}
+          />
+        ) : (
+          <Chip label="None" size="small" variant="outlined" />
+        )
+      )
+    },
+    {
+      field: 'actions',
+      type: 'actions',
+      headerName: 'Actions',
+      width: 120,
+      getActions: (params) => [
+        <GridActionsCellItem
+          key="edit"
+          icon={<Edit />}
+          label="Edit"
+          onClick={() => onEdit(params.row)}
+        />,
+        <GridActionsCellItem
+          key="delete"
+          icon={<Delete />}
+          label="Delete"
+          onClick={() => onDelete(params.row.uid)}
+        />
+      ]
+    }
+  ], [currentlyPlaying, onPlayPause, onEdit, onDelete]);
+
+  return (
+    <Paper sx={{ height: 600, width: '100%' }}>
+      <DataGrid
+        rows={rows}
+        columns={columns}
+        getRowId={(row) => row.uid}
+        loading={loading}
+        pageSizeOptions={[10, 25, 50]}
+        initialState={{
+          pagination: { paginationModel: { pageSize: 25 } }
+        }}
+        disableRowSelectionOnClick
+      />
+    </Paper>
+  );
+});
+
 export default function MusicManagement() {
   const [music, setMusic] = useState<Music[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedMusic, setSelectedMusic] = useState<Music | null>(null);
+  const [editMetadata, setEditMetadata] = useState<EditMusicMetadata | null>(null);
+  const [editLyrics, setEditLyrics] = useState('');
   const [searchFilters, setSearchFilters] = useState<SearchFilters>({});
   const [appliedFilters, setAppliedFilters] = useState<SearchFilters>({});
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
@@ -128,6 +252,13 @@ export default function MusicManagement() {
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedSheetMusic, setSelectedSheetMusic] = useState<File | null>(null);
+
+  const closeEditDialog = useCallback(() => {
+    setEditDialogOpen(false);
+    setSelectedMusic(null);
+    setEditMetadata(null);
+    setEditLyrics('');
+  }, []);
 
   // Load music data
   const loadMusic = useCallback(async (filters: SearchFilters) => {
@@ -282,7 +413,7 @@ export default function MusicManagement() {
 
   // Update music
   const handleUpdate = async () => {
-    if (!selectedMusic) return;
+    if (!editMetadata) return;
 
     try {
       const response = await fetch('/api/graphql', {
@@ -300,15 +431,15 @@ export default function MusicManagement() {
           `,
           variables: {
             updateMusicInput: {
-              uid: selectedMusic.uid,
-              title: selectedMusic.title,
-              subtitle: selectedMusic.subtitle,
-              author: selectedMusic.author,
-              version: selectedMusic.version,
-              presentation_type: selectedMusic.presentation_type,
-              genre: selectedMusic.genre,
-              bpm: selectedMusic.bpm,
-              lyrics: selectedMusic.lyrics
+              uid: editMetadata.uid,
+              title: editMetadata.title,
+              subtitle: editMetadata.subtitle,
+              author: editMetadata.author,
+              version: editMetadata.version,
+              presentation_type: editMetadata.presentation_type,
+              genre: editMetadata.genre,
+              bpm: editMetadata.bpm,
+              lyrics: editLyrics || undefined
             }
           }
         })
@@ -320,8 +451,7 @@ export default function MusicManagement() {
       }
 
       setSnackbar({ open: true, message: 'Music updated successfully!', severity: 'success' });
-      setEditDialogOpen(false);
-      setSelectedMusic(null);
+      closeEditDialog();
       await loadMusic(appliedFilters);
     } catch (error) {
       setSnackbar({ open: true, message: `Update failed: ${error}`, severity: 'error' });
@@ -329,7 +459,7 @@ export default function MusicManagement() {
   };
 
   // Delete music
-  const handleDelete = async (uid: string) => {
+  const handleDelete = useCallback(async (uid: string) => {
     if (!confirm('Are you sure you want to delete this music?')) return;
 
     try {
@@ -356,113 +486,42 @@ export default function MusicManagement() {
     } catch (error) {
       setSnackbar({ open: true, message: `Delete failed: ${error}`, severity: 'error' });
     }
-  };
+  }, [appliedFilters, loadMusic]);
 
   // Play/Pause audio
-  const handlePlayPause = (uid: string, fileUrl: string) => {
+  const handlePlayPause = useCallback((uid: string, fileUrl: string) => {
     if (currentlyPlaying === uid) {
-      // Pause current audio
       audioElement?.pause();
       setCurrentlyPlaying(null);
-    } else {
-      // Stop previous audio if any
-      if (audioElement) {
-        audioElement.pause();
-      }
-
-      // Play new audio
-      const audio = new Audio(fileUrl);
-      audio.play();
-      setAudioElement(audio);
-      setCurrentlyPlaying(uid);
-
-      // Handle audio end
-      audio.onended = () => {
-        setCurrentlyPlaying(null);
-      };
+      return;
     }
-  };
 
-  // DataGrid columns
-  const columns: GridColDef[] = [
-    {
-      field: 'play',
-      headerName: 'Play',
-      width: 70,
-      sortable: false,
-      renderCell: (params) => (
-        <IconButton
-          color="primary"
-          onClick={() => handlePlayPause(params.row.uid, params.row.file_url)}
-          size="small"
-        >
-          {currentlyPlaying === params.row.uid ? <Pause /> : <PlayArrow />}
-        </IconButton>
-      )
-    },
-    { field: 'title', headerName: 'Title', width: 200, editable: false },
-    { field: 'subtitle', headerName: 'Subtitle', width: 150, editable: false },
-    { field: 'author', headerName: 'Author', width: 150, editable: false },
-    { field: 'version', headerName: 'Version', width: 100, editable: false },
-    {
-      field: 'genre',
-      headerName: 'Genre',
-      width: 120,
-      renderCell: (params) => (
-        <Chip label={params.value} size="small" color="primary" />
-      )
-    },
-    {
-      field: 'presentation_type',
-      headerName: 'Type',
-      width: 100,
-      renderCell: (params) => (
-        <Chip label={params.value} size="small" color="secondary" />
-      )
-    },
-    { field: 'bpm', headerName: 'BPM', width: 80, type: 'number' },
-    {
-      field: 'sheet_music_name',
-      headerName: 'Sheet Music',
-      width: 120,
-      renderCell: (params) => (
-        params.value ? (
-          <Chip
-            label="Available"
-            size="small"
-            color="success"
-            onClick={() => window.open(params.row.sheet_music_url, '_blank')}
-            style={{ cursor: 'pointer' }}
-          />
-        ) : (
-          <Chip label="None" size="small" variant="outlined" />
-        )
-      )
-    },
-    {
-      field: 'actions',
-      type: 'actions',
-      headerName: 'Actions',
-      width: 120,
-      getActions: (params) => [
-        <GridActionsCellItem
-          key="edit"
-          icon={<Edit />}
-          label="Edit"
-          onClick={() => {
-            setSelectedMusic(params.row);
-            setEditDialogOpen(true);
-          }}
-        />,
-        <GridActionsCellItem
-          key="delete"
-          icon={<Delete />}
-          label="Delete"
-          onClick={() => handleDelete(params.row.uid)}
-        />
-      ]
-    }
-  ];
+    audioElement?.pause();
+    const audio = new Audio(fileUrl);
+    audio.play();
+    setAudioElement(audio);
+    setCurrentlyPlaying(uid);
+
+    audio.onended = () => {
+      setCurrentlyPlaying(null);
+    };
+  }, [audioElement, currentlyPlaying]);
+
+  const handleEditRow = useCallback((row: Music) => {
+    setSelectedMusic(row);
+    setEditMetadata({
+      uid: row.uid,
+      title: row.title,
+      subtitle: row.subtitle,
+      author: row.author,
+      version: row.version,
+      presentation_type: row.presentation_type,
+      genre: row.genre,
+      bpm: row.bpm
+    });
+    setEditLyrics(row.lyrics || '');
+    setEditDialogOpen(true);
+  }, []);
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
@@ -541,19 +600,14 @@ export default function MusicManagement() {
       </Paper>
 
       {/* Music Table */}
-      <Paper sx={{ height: 600, width: '100%' }}>
-        <DataGrid
-          rows={music}
-          columns={columns}
-          getRowId={(row) => row.uid}
-          loading={loading}
-          pageSizeOptions={[10, 25, 50]}
-          initialState={{
-            pagination: { paginationModel: { pageSize: 25 } }
-          }}
-          disableRowSelectionOnClick
-        />
-      </Paper>
+      <MusicTable
+        rows={music}
+        loading={loading}
+        currentlyPlaying={currentlyPlaying}
+        onPlayPause={handlePlayPause}
+        onEdit={handleEditRow}
+        onDelete={handleDelete}
+      />
 
       {/* Upload FAB */}
       <Fab
@@ -694,26 +748,26 @@ export default function MusicManagement() {
       </Dialog>
 
       {/* Edit Dialog */}
-      <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={editDialogOpen} onClose={closeEditDialog} maxWidth="sm" fullWidth>
         <DialogTitle>Edit Music</DialogTitle>
         <DialogContent>
-          {selectedMusic && (
+          {editMetadata && (
             <Grid container spacing={2} sx={{ mt: 1 }}>
               <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   label="Title"
                   required
-                  value={selectedMusic.title}
-                  onChange={(e) => setSelectedMusic({ ...selectedMusic, title: e.target.value })}
+                  value={editMetadata.title}
+                  onChange={(e) => setEditMetadata((prev) => prev ? { ...prev, title: e.target.value } : prev)}
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   label="Subtitle"
-                  value={selectedMusic.subtitle || ''}
-                  onChange={(e) => setSelectedMusic({ ...selectedMusic, subtitle: e.target.value })}
+                  value={editMetadata.subtitle || ''}
+                  onChange={(e) => setEditMetadata((prev) => prev ? { ...prev, subtitle: e.target.value } : prev)}
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
@@ -721,25 +775,25 @@ export default function MusicManagement() {
                   fullWidth
                   label="Author"
                   required
-                  value={selectedMusic.author}
-                  onChange={(e) => setSelectedMusic({ ...selectedMusic, author: e.target.value })}
+                   value={editMetadata.author}
+                   onChange={(e) => setEditMetadata((prev) => prev ? { ...prev, author: e.target.value } : prev)}
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   label="Version"
-                  value={selectedMusic.version || ''}
-                  onChange={(e) => setSelectedMusic({ ...selectedMusic, version: e.target.value })}
+                  value={editMetadata.version || ''}
+                  onChange={(e) => setEditMetadata((prev) => prev ? { ...prev, version: e.target.value } : prev)}
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
                 <FormControl fullWidth>
                   <InputLabel>Genre</InputLabel>
                   <Select
-                    value={selectedMusic.genre}
+                    value={editMetadata.genre}
                     label="Genre"
-                    onChange={(e) => setSelectedMusic({ ...selectedMusic, genre: e.target.value as Genre })}
+                    onChange={(e) => setEditMetadata((prev) => prev ? { ...prev, genre: e.target.value as Genre } : prev)}
                   >
                     {Object.values(Genre).map((genre) => (
                       <MenuItem key={genre} value={genre}>{genre}</MenuItem>
@@ -751,9 +805,9 @@ export default function MusicManagement() {
                 <FormControl fullWidth>
                   <InputLabel>Presentation Type</InputLabel>
                   <Select
-                    value={selectedMusic.presentation_type}
+                    value={editMetadata.presentation_type}
                     label="Presentation Type"
-                    onChange={(e) => setSelectedMusic({ ...selectedMusic, presentation_type: e.target.value as PresentationType })}
+                    onChange={(e) => setEditMetadata((prev) => prev ? { ...prev, presentation_type: e.target.value as PresentationType } : prev)}
                   >
                     {Object.values(PresentationType).map((type) => (
                       <MenuItem key={type} value={type}>{type}</MenuItem>
@@ -766,8 +820,8 @@ export default function MusicManagement() {
                   fullWidth
                   label="BPM"
                   type="number"
-                  value={selectedMusic.bpm || ''}
-                  onChange={(e) => setSelectedMusic({ ...selectedMusic, bpm: parseInt(e.target.value) || undefined })}
+                  value={editMetadata.bpm ?? ''}
+                  onChange={(e) => setEditMetadata((prev) => prev ? { ...prev, bpm: parseInt(e.target.value) || undefined } : prev)}
                 />
               </Grid>
               <Grid size={12}>
@@ -776,12 +830,12 @@ export default function MusicManagement() {
                   label="Lyrics (Liedtext)"
                   multiline
                   rows={4}
-                  value={selectedMusic.lyrics || ''}
-                  onChange={(e) => setSelectedMusic({ ...selectedMusic, lyrics: e.target.value })}
+                  value={editLyrics}
+                  onChange={(e) => setEditLyrics(e.target.value)}
                   placeholder="Enter song lyrics here..."
                 />
               </Grid>
-              {selectedMusic.sheet_music_name && (
+              {selectedMusic?.sheet_music_name && (
                 <Grid size={12}>
                   <Chip
                     label={`Sheet Music: ${selectedMusic.sheet_music_name}`}
@@ -795,7 +849,7 @@ export default function MusicManagement() {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setEditDialogOpen(false)}>Cancel</Button>
+          <Button onClick={closeEditDialog}>Cancel</Button>
           <Button onClick={handleUpdate} variant="contained">Update</Button>
         </DialogActions>
       </Dialog>
