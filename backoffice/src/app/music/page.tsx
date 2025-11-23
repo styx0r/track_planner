@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Container,
@@ -33,6 +33,7 @@ import {
   Pause
 } from '@mui/icons-material';
 import { DataGrid, GridColDef, GridActionsCellItem } from '@mui/x-data-grid';
+import { parseBlob, type IAudioMetadata } from 'music-metadata-browser';
 
 // Types
 interface Music {
@@ -73,6 +74,19 @@ enum Genre {
   OTHER = 'OTHER'
 }
 
+const normalizeText = (value: string) => value.replace(/[^a-z0-9]/gi, '').toLowerCase();
+
+const mapGenreFromMetadata = (value?: string | null): Genre | undefined => {
+  if (!value) return undefined;
+  const normalized = normalizeText(value);
+  return Object.values(Genre).find((genre) => normalizeText(genre) === normalized);
+};
+
+const fileNameWithoutExtension = (fileName: string) => fileName.replace(/\.[^/.]+$/, '').trim();
+
+const pickArtist = (metadata: IAudioMetadata) =>
+  metadata.common.artist || metadata.common.artists?.[0] || undefined;
+
 interface CreateMusicInput {
   title: string;
   subtitle?: string;
@@ -98,6 +112,7 @@ export default function MusicManagement() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedMusic, setSelectedMusic] = useState<Music | null>(null);
   const [searchFilters, setSearchFilters] = useState<SearchFilters>({});
+  const [appliedFilters, setAppliedFilters] = useState<SearchFilters>({});
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
 
   // Audio player state
@@ -115,7 +130,7 @@ export default function MusicManagement() {
   const [selectedSheetMusic, setSelectedSheetMusic] = useState<File | null>(null);
 
   // Load music data
-  const loadMusic = async () => {
+  const loadMusic = useCallback(async (filters: SearchFilters) => {
     setLoading(true);
     try {
       const response = await fetch('/api/graphql', {
@@ -143,7 +158,7 @@ export default function MusicManagement() {
               }
             }
           `,
-          variables: { searchInput: searchFilters }
+          variables: { searchInput: filters }
         })
       });
       
@@ -158,11 +173,60 @@ export default function MusicManagement() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    loadMusic();
-  }, [searchFilters]);
+    loadMusic({});
+  }, [loadMusic]);
+
+  const handleSearch = useCallback(() => {
+    setAppliedFilters(searchFilters);
+    loadMusic(searchFilters);
+  }, [loadMusic, searchFilters]);
+
+  const autoPopulateFromMetadata = useCallback(async (file: File) => {
+    try {
+      const metadata = await parseBlob(file);
+      setUploadForm((prev) => {
+        const updated = { ...prev };
+        const derivedTitle = metadata.common.title || fileNameWithoutExtension(file.name);
+        if (!prev.title && derivedTitle) {
+          updated.title = derivedTitle;
+        }
+        if (!prev.subtitle && metadata.common.album) {
+          updated.subtitle = metadata.common.album;
+        }
+        const artist = pickArtist(metadata);
+        if (!prev.author && artist) {
+          updated.author = artist;
+        }
+        if (!prev.version && metadata.common.track?.no) {
+          updated.version = metadata.common.track.no.toString();
+        }
+        if (prev.genre === Genre.OTHER) {
+          const inferredGenre = mapGenreFromMetadata(metadata.common.genre?.[0]);
+          if (inferredGenre) {
+            updated.genre = inferredGenre;
+          }
+        }
+        const bpm = metadata.common.bpm;
+        if (!prev.bpm && typeof bpm === 'number' && !Number.isNaN(bpm)) {
+          updated.bpm = Math.round(bpm);
+        }
+        return updated;
+      });
+    } catch (error) {
+      console.warn('Audio metadata extraction failed', error);
+    }
+  }, []);
+
+  const handleAudioFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] || null;
+    setSelectedFile(file);
+    if (file) {
+      void autoPopulateFromMetadata(file);
+    }
+  }, [autoPopulateFromMetadata]);
 
   // Upload music
   const handleUpload = async () => {
@@ -210,7 +274,7 @@ export default function MusicManagement() {
       });
       setSelectedFile(null);
       setSelectedSheetMusic(null);
-      loadMusic();
+      await loadMusic(appliedFilters);
     } catch (error) {
       setSnackbar({ open: true, message: `Upload failed: ${error}`, severity: 'error' });
     }
@@ -258,7 +322,7 @@ export default function MusicManagement() {
       setSnackbar({ open: true, message: 'Music updated successfully!', severity: 'success' });
       setEditDialogOpen(false);
       setSelectedMusic(null);
-      loadMusic();
+      await loadMusic(appliedFilters);
     } catch (error) {
       setSnackbar({ open: true, message: `Update failed: ${error}`, severity: 'error' });
     }
@@ -288,7 +352,7 @@ export default function MusicManagement() {
       }
 
       setSnackbar({ open: true, message: 'Music deleted successfully!', severity: 'success' });
-      loadMusic();
+      await loadMusic(appliedFilters);
     } catch (error) {
       setSnackbar({ open: true, message: `Delete failed: ${error}`, severity: 'error' });
     }
@@ -468,7 +532,7 @@ export default function MusicManagement() {
               fullWidth
               variant="outlined"
               startIcon={<Search />}
-              onClick={loadMusic}
+              onClick={handleSearch}
             >
               Search
             </Button>
@@ -519,7 +583,7 @@ export default function MusicManagement() {
                   type="file"
                   hidden
                   accept="audio/*"
-                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                  onChange={handleAudioFileChange}
                 />
               </Button>
             </Grid>
