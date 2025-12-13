@@ -13,6 +13,12 @@ input CreateMusicInput {
   version: String
 }
 
+input CreatePlaylistInput {
+  description: String
+  name: String!
+  tracks: [PlaylistTrackInput!]! = []
+}
+
 """
 A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
 """
@@ -58,9 +64,38 @@ input MusicSearchInput {
 
 type Mutation {
   createMusic(createMusicInput: CreateMusicInput!): Music!
+  createPlaylist(createPlaylistInput: CreatePlaylistInput!): Playlist!
   deleteMusic(uid: String!): Boolean!
+  deletePlaylist(uid: String!): Boolean!
   switch: Int!
   updateMusic(updateMusicInput: UpdateMusicInput!): Music!
+  updatePlaylist(updatePlaylistInput: UpdatePlaylistInput!): Playlist!
+}
+
+type Playlist {
+  creation_timestamp: DateTime!
+  description: String
+  name: String!
+  tracks: [PlaylistTrack!]!
+  uid: ID!
+  update_timestamp: DateTime!
+}
+
+type PlaylistTrack {
+  music: PlaylistTrackSummary
+  music_uid: String!
+  order: Int!
+}
+
+input PlaylistTrackInput {
+  music_uid: String!
+  order: Int!
+}
+
+type PlaylistTrackSummary {
+  author: String!
+  title: String!
+  uid: ID!
 }
 
 enum PresentationType {
@@ -75,6 +110,8 @@ type Query {
   getLightState: Int!
   getMusicById(uid: String!): Music!
   hello: String!
+  playlist(uid: String!): Playlist!
+  playlists: [Playlist!]!
   searchMusic(searchInput: MusicSearchInput): [Music!]!
 }
 
@@ -88,4 +125,11 @@ input UpdateMusicInput {
   title: String
   uid: ID!
   version: String
+}
+
+input UpdatePlaylistInput {
+  description: String
+  name: String
+  tracks: [PlaylistTrackInput!]
+  uid: ID!
 }

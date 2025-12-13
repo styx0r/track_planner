@@ -62,7 +62,7 @@ interface MusicTableProps {
   currentlyPlaying: string | null;
   onPlayPause: (uid: string, fileUrl: string) => void;
   onEdit: (row: Music) => void;
-  onDelete: (uid: string) => void;
+  onDeleteMusic: (uid: string) => void;
 }
 
 enum PresentationType {
@@ -133,7 +133,7 @@ const MusicTable = memo(function MusicTable({
   currentlyPlaying,
   onPlayPause,
   onEdit,
-  onDelete
+  onDeleteMusic
 }: MusicTableProps) {
   const columns = useMemo<GridColDef[]>(() => [
     {
@@ -206,11 +206,11 @@ const MusicTable = memo(function MusicTable({
           key="delete"
           icon={<Delete />}
           label="Delete"
-          onClick={() => onDelete(params.row.uid)}
+          onClick={() => onDeleteMusic(params.row.uid)}
         />
       ]
     }
-  ], [currentlyPlaying, onPlayPause, onEdit, onDelete]);
+  ], [currentlyPlaying, onPlayPause, onEdit, onDeleteMusic]);
 
   return (
     <Paper sx={{ height: 600, width: '100%' }}>
@@ -461,7 +461,7 @@ export default function MusicManagement() {
   };
 
   // Delete music
-  const handleDelete = useCallback(async (uid: string) => {
+  const handleDeleteMusic = useCallback(async (uid: string) => {
     if (!confirm('Are you sure you want to delete this music?')) return;
 
     try {
@@ -618,7 +618,7 @@ export default function MusicManagement() {
         currentlyPlaying={currentlyPlaying}
         onPlayPause={handlePlayPause}
         onEdit={handleEditRow}
-        onDelete={handleDelete}
+        onDeleteMusic={handleDeleteMusic}
       />
 
       {/* Upload FAB */}

@@ -76,4 +76,33 @@ else
 fi
 rm -f "${tmp_response}"
 
+playlist_payload=$(cat <<EOF
+{
+  "name": "playlists",
+  "type": 2
+}
+EOF
+)
+
+tmp_response=$(mktemp)
+status_code=$(
+  curl -s -o "${tmp_response}" -w "%{http_code}" -X POST \
+    "${ARANGO_URL}/_db/${DB_NAME}/_api/collection" \
+    -H 'Content-Type: application/json' \
+    -u "${APP_USER}:${APP_PASS}" \
+    -d "${playlist_payload}"
+)
+
+if [[ "${status_code}" == "200" ]]; then
+  echo "Collection 'playlists' created."
+elif [[ "${status_code}" == "409" ]]; then
+  echo "Collection 'playlists' already exists, skipping creation."
+else
+  echo "Failed to create 'playlists' collection (status ${status_code}):"
+  cat "${tmp_response}"
+  rm -f "${tmp_response}"
+  exit 1
+fi
+rm -f "${tmp_response}"
+
 echo "Setup complete!"

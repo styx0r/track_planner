@@ -11,7 +11,7 @@ import {
   Button,
   Grid
 } from '@mui/material';
-import { MusicNote, Dashboard } from '@mui/icons-material';
+import { MusicNote, Dashboard, QueueMusic } from '@mui/icons-material';
 import Link from 'next/link';
 
 export default function BackofficeHome() {
@@ -42,6 +42,27 @@ export default function BackofficeHome() {
               <Link href="/music" passHref>
                 <Button variant="contained" startIcon={<MusicNote />}>
                   Manage Music
+                </Button>
+              </Link>
+            </CardActions>
+          </Card>
+        </Grid>
+
+        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+          <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <CardContent sx={{ flexGrow: 1, textAlign: 'center' }}>
+              <QueueMusic sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
+              <Typography variant="h5" component="h2" gutterBottom>
+                Playlists
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Create, edit, and reorder playlists based on your music library.
+              </Typography>
+            </CardContent>
+            <CardActions sx={{ justifyContent: 'center', pb: 2 }}>
+              <Link href="/playlists" passHref>
+                <Button variant="contained" startIcon={<QueueMusic />}>
+                  Manage Playlists
                 </Button>
               </Link>
             </CardActions>
