@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
+import Link from 'next/link';
 import {
   Box,
   Container,
@@ -30,7 +31,8 @@ import {
   Delete,
   Add,
   PlayArrow,
-  Pause
+  Pause,
+  ArrowBack
 } from '@mui/icons-material';
 import { DataGrid, GridColDef, GridActionsCellItem } from '@mui/x-data-grid';
 import { parseBlob, type IAudioMetadata } from 'music-metadata-browser';
@@ -525,13 +527,23 @@ export default function MusicManagement() {
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Music Management
-        </Typography>
-        <Typography variant="subtitle1" color="text.secondary">
-          Upload, search, and manage your music library
-        </Typography>
+      <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+        <Button
+          component={Link}
+          href="/"
+          variant="text"
+          startIcon={<ArrowBack />}
+        >
+          Back
+        </Button>
+        <Box sx={{ flexGrow: 1 }}>
+          <Typography variant="h4" component="h1" gutterBottom>
+            Music Management
+          </Typography>
+          <Typography variant="subtitle1" color="text.secondary">
+            Upload, search, and manage your music library
+          </Typography>
+        </Box>
       </Box>
 
       {/* Search Filters */}
