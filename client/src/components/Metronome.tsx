@@ -52,6 +52,14 @@ export function Metronome({
   // Effective start time with offset applied
   const effectiveStartTime = startTime !== null ? startTime + metronomeOffset : null;
 
+  // Auto-initialize audio when metronome becomes enabled (e.g., from playing a song)
+  useEffect(() => {
+    if (enabled && soundType !== 'off' && !audioInitialized) {
+      initAudioContext();
+      setAudioInitialized(true);
+    }
+  }, [enabled, soundType, audioInitialized]);
+
   // Initialize audio on first user interaction
   const handleEnableClick = useCallback(() => {
     if (!audioInitialized && soundType !== 'off') {
