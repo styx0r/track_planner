@@ -1,5 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database.service';
+import { MinioService } from '../music/minio.service';
 import {
   CreatePlaylistInput,
   UpdatePlaylistInput,
@@ -15,7 +16,10 @@ export class PlaylistService {
   private readonly collectionName = 'playlists';
   private readonly musicCollectionName = 'music';
 
-  constructor(private readonly databaseService: DatabaseService) {}
+  constructor(
+    private readonly databaseService: DatabaseService,
+    private readonly minioService: MinioService,
+  ) {}
 
   async createPlaylist(createPlaylistInput: CreatePlaylistInput): Promise<Playlist> {
     const db = this.databaseService.getDatabase();
@@ -156,7 +160,12 @@ export class PlaylistService {
       `
         FOR doc IN @@collection
           FILTER doc.uid IN @uids
-          RETURN { uid: doc.uid, title: doc.title, author: doc.author }
+          RETURN { 
+            uid: doc.uid, 
+            title: doc.title, 
+            author: doc.author,
+            sheet_music_name: doc.sheet_music_name
+          }
       `,
       {
         '@collection': this.musicCollectionName,
@@ -165,10 +174,30 @@ export class PlaylistService {
     );
 
     const documents = await cursor.all();
-    return documents.reduce((acc, item) => {
-      acc[item.uid] = item as PlaylistTrackSummary;
-      return acc;
-    }, {} as Record<string, PlaylistTrackSummary>);
+    
+    // Refresh sheet music URLs
+    const result: Record<string, PlaylistTrackSummary> = {};
+    for (const item of documents) {
+      const summary: PlaylistTrackSummary = {
+        uid: item.uid,
+        title: item.title,
+        author: item.author,
+      };
+      
+      // Refresh sheet music URL if available
+      if (item.sheet_music_name) {
+        try {
+          summary.sheet_music_url = await this.minioService.getFileUrl(item.sheet_music_name);
+          summary.sheet_music_name = item.sheet_music_name;
+        } catch (e) {
+          this.logger.warn(`Could not refresh sheet music URL for: ${item.sheet_music_name}`);
+        }
+      }
+      
+      result[item.uid] = summary;
+    }
+    
+    return result;
   }
 }
 

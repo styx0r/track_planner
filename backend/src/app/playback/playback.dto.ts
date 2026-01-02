@@ -52,6 +52,12 @@ export class PlaybackState {
 
   @Field(() => Int, { nullable: true })
   countInBeats?: number; // Number of count-in beats
+
+  @Field({ nullable: true })
+  sheetMusicUrl?: string; // URL to the sheet music PDF
+
+  @Field({ nullable: true })
+  sheetMusicName?: string; // Name of the sheet music file
 }
 
 /**

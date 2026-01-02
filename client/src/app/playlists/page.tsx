@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { usePlayback } from '../../lib/usePlayback';
 import { fetchPlaylistsApi } from '../../lib/useApi';
 import { Playlist } from '../../lib/types';
 import { Player } from '../../components/Player';
 import { Metronome } from '../../components/Metronome';
 import { PlaylistCard } from '../../components/PlaylistCard';
+import { SheetMusicViewer } from '../../components/SheetMusicViewer';
 import styles from './page.module.css';
 
 export default function PlaylistsPage() {
@@ -111,6 +112,30 @@ export default function PlaylistsPage() {
     }
   }, []);
 
+  // Get current sheet music URL from playback state or selected playlist
+  const currentSheetMusic = useMemo(() => {
+    // First priority: from playback state (playing track)
+    if (playbackState.sheetMusicUrl) {
+      return {
+        url: playbackState.sheetMusicUrl,
+        title: playbackState.currentTrackTitle || 'Sheet Music',
+      };
+    }
+    
+    // Second priority: from selected playlist's current track
+    if (selectedPlaylist && playbackState.currentTrackIndex !== undefined) {
+      const track = selectedPlaylist.tracks[playbackState.currentTrackIndex];
+      if (track?.music?.sheet_music_url) {
+        return {
+          url: track.music.sheet_music_url,
+          title: track.music.title || 'Sheet Music',
+        };
+      }
+    }
+    
+    return null;
+  }, [playbackState.sheetMusicUrl, playbackState.currentTrackTitle, playbackState.currentTrackIndex, selectedPlaylist]);
+
   return (
     <div className={styles.page}>
       {/* Header */}
@@ -177,6 +202,14 @@ export default function PlaylistsPage() {
             </div>
           )}
         </aside>
+
+        {/* Center Panel - Sheet Music Viewer */}
+        <section className={styles.sheetMusicPanel}>
+          <SheetMusicViewer
+            url={currentSheetMusic?.url || null}
+            title={currentSheetMusic?.title}
+          />
+        </section>
 
         {/* Right Panel - Playlists */}
         <section className={styles.content}>

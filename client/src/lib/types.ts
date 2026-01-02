@@ -23,6 +23,8 @@ export interface PlaybackState {
   scheduledStartTime?: number; // When the song actually starts
   countInStartTime?: number; // When the count-in metronome starts (before song)
   countInBeats?: number; // Number of beats in the count-in
+  sheetMusicUrl?: string; // URL to the sheet music PDF
+  sheetMusicName?: string; // Name of the sheet music file
 }
 
 export interface MetronomeState {
@@ -35,6 +37,8 @@ export interface PlaylistTrackSummary {
   uid: string;
   title: string;
   author: string;
+  sheet_music_url?: string;
+  sheet_music_name?: string;
 }
 
 export interface PlaylistTrack {

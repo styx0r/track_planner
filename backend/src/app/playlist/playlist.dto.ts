@@ -26,6 +26,12 @@ export class PlaylistTrackSummary {
 
   @Field()
   author!: string;
+
+  @Field({ nullable: true })
+  sheet_music_url?: string;
+
+  @Field({ nullable: true })
+  sheet_music_name?: string;
 }
 
 @ObjectType()

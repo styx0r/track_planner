@@ -48,6 +48,8 @@ const PLAYLISTS_QUERY = `
           uid
           title
           author
+          sheet_music_url
+          sheet_music_name
         }
       }
     }
@@ -69,6 +71,8 @@ const PLAYLIST_QUERY = `
           uid
           title
           author
+          sheet_music_url
+          sheet_music_name
         }
       }
     }

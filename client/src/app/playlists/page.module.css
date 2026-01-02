@@ -98,27 +98,40 @@
 .main {
   flex: 1;
   display: grid;
-  grid-template-columns: 380px 1fr;
-  gap: 32px;
-  padding: 32px;
-  max-width: 1600px;
+  grid-template-columns: 340px 1fr 380px;
+  grid-template-rows: 1fr;
+  gap: 24px;
+  padding: 24px 32px;
+  max-width: 1920px;
   margin: 0 auto;
   width: 100%;
+  min-height: 0; /* Allow grid to shrink */
 }
 
 .sidebar {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
   position: sticky;
-  top: 32px;
+  top: 24px;
   height: fit-content;
+  max-height: calc(100vh - 180px);
+  overflow-y: auto;
+}
+
+.sheetMusicPanel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: calc(100vh - 180px); /* Full height minus header and footer */
 }
 
 .content {
   display: flex;
   flex-direction: column;
   gap: 24px;
+  max-height: calc(100vh - 180px);
+  overflow-y: auto;
 }
 
 .sectionHeader {
@@ -358,16 +371,44 @@
   border-color: rgba(99, 102, 241, 0.3);
 }
 
+@media (max-width: 1400px) {
+  .main {
+    grid-template-columns: 320px 1fr;
+  }
+
+  .sheetMusicPanel {
+    order: 2;
+    grid-column: span 2;
+    max-height: 500px;
+  }
+
+  .content {
+    max-height: none;
+    overflow-y: visible;
+  }
+}
+
 @media (max-width: 1024px) {
   .main {
     grid-template-columns: 1fr;
+    gap: 20px;
   }
 
   .sidebar {
     position: static;
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 20px;
+    gap: 16px;
+  }
+
+  .sheetMusicPanel {
+    order: 1;
+    grid-column: auto;
+    max-height: 50vh;
+  }
+
+  .content {
+    order: 2;
   }
 }
 
@@ -379,11 +420,15 @@
   }
 
   .main {
-    padding: 20px;
+    padding: 16px;
   }
 
   .sidebar {
     grid-template-columns: 1fr;
+  }
+
+  .sheetMusicPanel {
+    max-height: 60vh;
   }
 
   .grid {
