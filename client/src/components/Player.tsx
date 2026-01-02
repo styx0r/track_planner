@@ -8,6 +8,7 @@ interface PlayerProps {
   activePlaylist: Playlist | null;
   isConnected: boolean;
   countInBeats: number;
+  performanceMode?: boolean; // Performance mode - simplified controls
   onPlay: (playlistUid: string, trackIndex?: number) => void;
   onPause: () => void;
   onStop: () => void;
@@ -21,6 +22,7 @@ export function Player({
   activePlaylist,
   isConnected,
   countInBeats,
+  performanceMode = false,
   onPlay,
   onPause,
   onStop,
@@ -45,7 +47,7 @@ export function Player({
   };
 
   return (
-    <div className={`${styles.player} ${!isConnected ? styles.disconnected : ''}`}>
+    <div className={`${styles.player} ${!isConnected ? styles.disconnected : ''} ${performanceMode ? styles.performanceMode : ''}`}>
       {/* Now Playing Info */}
       <div className={styles.nowPlaying}>
         <div className={styles.albumArt}>
@@ -76,23 +78,25 @@ export function Player({
         </div>
       </div>
 
-      {/* Count-In Setting */}
-      <div className={styles.countInSetting}>
-        <label className={styles.countInLabel}>
-          <span>Count-in</span>
-          <select 
-            value={countInBeats} 
-            onChange={(e) => onCountInChange(parseInt(e.target.value, 10))}
-            className={styles.countInSelect}
-          >
-            <option value={0}>Off</option>
-            <option value={2}>2 beats</option>
-            <option value={4}>4 beats (1 bar)</option>
-            <option value={8}>8 beats (2 bars)</option>
-            <option value={16}>16 beats (4 bars)</option>
-          </select>
-        </label>
-      </div>
+      {/* Count-In Setting - only in rehearsal mode */}
+      {!performanceMode && (
+        <div className={styles.countInSetting}>
+          <label className={styles.countInLabel}>
+            <span>Count-in</span>
+            <select 
+              value={countInBeats} 
+              onChange={(e) => onCountInChange(parseInt(e.target.value, 10))}
+              className={styles.countInSelect}
+            >
+              <option value={0}>Off</option>
+              <option value={2}>2 beats</option>
+              <option value={4}>4 beats (1 bar)</option>
+              <option value={8}>8 beats (2 bars)</option>
+              <option value={16}>16 beats (4 bars)</option>
+            </select>
+          </label>
+        </div>
+      )}
 
       {/* Playback Controls */}
       <div className={styles.controls}>

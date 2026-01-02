@@ -10,6 +10,12 @@
   opacity: 0.6;
 }
 
+/* Performance mode - simplified appearance */
+.player.performanceMode {
+  background: linear-gradient(145deg, #0a0f1a 0%, #152233 100%);
+  border-color: rgba(99, 102, 241, 0.2);
+}
+
 .nowPlaying {
   display: flex;
   align-items: center;
