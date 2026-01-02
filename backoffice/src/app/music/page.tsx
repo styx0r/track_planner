@@ -47,6 +47,7 @@ interface Music {
   presentation_type: PresentationType;
   genre: Genre;
   bpm?: number;
+  metronome_offset?: number;
   lyrics?: string;
   creation_timestamp: string;
   update_timestamp: string;
@@ -106,6 +107,7 @@ interface CreateMusicInput {
   presentation_type: PresentationType;
   genre: Genre;
   bpm?: number;
+  metronome_offset?: number;
   lyrics?: string;
 }
 
@@ -125,6 +127,7 @@ interface EditMusicMetadata {
   presentation_type: PresentationType;
   genre: Genre;
   bpm?: number;
+  metronome_offset?: number;
 }
 
 const MusicTable = memo(function MusicTable({
@@ -172,6 +175,7 @@ const MusicTable = memo(function MusicTable({
       )
     },
     { field: 'bpm', headerName: 'BPM', width: 80, type: 'number' },
+    { field: 'metronome_offset', headerName: 'Offset (ms)', width: 100, type: 'number' },
     {
       field: 'sheet_music_name',
       headerName: 'Sheet Music',
@@ -281,6 +285,7 @@ export default function MusicManagement() {
                 presentation_type
                 genre
                 bpm
+                metronome_offset
                 lyrics
                 creation_timestamp
                 update_timestamp
@@ -441,6 +446,7 @@ export default function MusicManagement() {
               presentation_type: editMetadata.presentation_type,
               genre: editMetadata.genre,
               bpm: editMetadata.bpm,
+              metronome_offset: editMetadata.metronome_offset,
               lyrics: editLyrics || undefined
             }
           }
@@ -519,7 +525,8 @@ export default function MusicManagement() {
       version: row.version,
       presentation_type: row.presentation_type,
       genre: row.genre,
-      bpm: row.bpm
+      bpm: row.bpm,
+      metronome_offset: row.metronome_offset
     });
     setEditLyrics(row.lyrics || '');
     setEditDialogOpen(true);
@@ -715,13 +722,23 @@ export default function MusicManagement() {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid size={12}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 label="BPM"
                 type="number"
                 value={uploadForm.bpm || ''}
                 onChange={(e) => setUploadForm({ ...uploadForm, bpm: parseInt(e.target.value) || undefined })}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                fullWidth
+                label="Metronome Offset (ms)"
+                type="number"
+                value={uploadForm.metronome_offset || ''}
+                onChange={(e) => setUploadForm({ ...uploadForm, metronome_offset: parseInt(e.target.value) || undefined })}
+                helperText="Offset in milliseconds relative to song start"
               />
             </Grid>
             <Grid size={12}>
@@ -827,13 +844,23 @@ export default function MusicManagement() {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid size={12}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   label="BPM"
                   type="number"
                   value={editMetadata.bpm ?? ''}
                   onChange={(e) => setEditMetadata((prev) => prev ? { ...prev, bpm: parseInt(e.target.value) || undefined } : prev)}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  fullWidth
+                  label="Metronome Offset (ms)"
+                  type="number"
+                  value={editMetadata.metronome_offset ?? ''}
+                  onChange={(e) => setEditMetadata((prev) => prev ? { ...prev, metronome_offset: parseInt(e.target.value) || undefined } : prev)}
+                  helperText="Offset in milliseconds relative to song start"
                 />
               </Grid>
               <Grid size={12}>

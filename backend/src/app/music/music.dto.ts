@@ -65,6 +65,9 @@ export class Music {
   @Field(() => Int, { nullable: true })
   bpm?: number;
 
+  @Field(() => Int, { nullable: true, description: 'Metronome offset in milliseconds relative to song start' })
+  metronome_offset?: number;
+
   @Field({ nullable: true })
   lyrics?: string;
 
@@ -114,6 +117,11 @@ export class CreateMusicInput {
   @IsNumber()
   bpm?: number;
 
+  @Field(() => Int, { nullable: true, description: 'Metronome offset in milliseconds relative to song start' })
+  @IsOptional()
+  @IsNumber()
+  metronome_offset?: number;
+
   @Field({ nullable: true })
   @IsOptional()
   @IsString()
@@ -160,6 +168,11 @@ export class UpdateMusicInput {
   @IsOptional()
   @IsNumber()
   bpm?: number;
+
+  @Field(() => Int, { nullable: true, description: 'Metronome offset in milliseconds relative to song start' })
+  @IsOptional()
+  @IsNumber()
+  metronome_offset?: number;
 
   @Field({ nullable: true })
   @IsOptional()

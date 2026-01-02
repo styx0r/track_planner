@@ -323,13 +323,13 @@
   color: white;
 }
 
-.testBtn {
+.muteBtn {
   width: 36px;
   height: 36px;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #94a3b8;
+  color: #10b981;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -337,20 +337,89 @@
   transition: all 0.2s ease;
 }
 
-.testBtn svg {
+.muteBtn svg {
   width: 18px;
   height: 18px;
 }
 
-.testBtn:hover:not(:disabled) {
-  background: rgba(233, 69, 96, 0.1);
-  border-color: rgba(233, 69, 96, 0.3);
-  color: #e94560;
+.muteBtn:hover:not(:disabled) {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.3);
 }
 
-.testBtn:disabled {
+.muteBtn.muted {
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.muteBtn.muted:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.muteBtn:disabled {
   opacity: 0.3;
   cursor: not-allowed;
+}
+
+/* Offset Control */
+.offsetControl {
+  margin-top: 12px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 8px;
+}
+
+.offsetLabel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.offsetLabel span {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.offsetInputGroup {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.offsetInput {
+  width: 70px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: white;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 14px;
+  text-align: right;
+}
+
+.offsetInput:focus {
+  outline: none;
+  border-color: #6366f1;
+}
+
+.offsetUnit {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.offsetHint {
+  margin: 6px 0 0 0;
+  font-size: 11px;
+  color: #64748b;
+  text-align: center;
 }
 
 .volumeControl {

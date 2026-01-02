@@ -14,8 +14,10 @@ interface MetronomeProps {
   startTime: number | null; // Local start time for song (from sync)
   countInStartTime: number | null; // Local start time for count-in
   countInBeats: number;
+  metronomeOffset: number; // Offset in ms (positive = metronome starts later)
   onToggle: (enabled: boolean) => void;
   onBpmChange: (bpm: number) => void;
+  onOffsetChange: (offsetMs: number) => void;
 }
 
 export function Metronome({ 
@@ -24,8 +26,10 @@ export function Metronome({
   startTime, 
   countInStartTime,
   countInBeats,
+  metronomeOffset,
   onToggle, 
-  onBpmChange 
+  onBpmChange,
+  onOffsetChange,
 }: MetronomeProps) {
   const [currentBeat, setCurrentBeat] = useState(0);
   const [isFlashing, setIsFlashing] = useState(false);
@@ -35,6 +39,7 @@ export function Metronome({
   // Audio settings
   const [soundType, setSoundType] = useState<ClickSound>('wood');
   const [volume, setVolume] = useState(0.5);
+  const [isMuted, setIsMuted] = useState(false);
   const [audioInitialized, setAudioInitialized] = useState(false);
   
   const animationRef = useRef<number | null>(null);
@@ -43,6 +48,9 @@ export function Metronome({
 
   // Calculate beat timing
   const beatInterval = 60000 / bpm; // ms per beat
+
+  // Effective start time with offset applied
+  const effectiveStartTime = startTime !== null ? startTime + metronomeOffset : null;
 
   // Initialize audio on first user interaction
   const handleEnableClick = useCallback(() => {
@@ -53,11 +61,20 @@ export function Metronome({
     onToggle(!enabled);
   }, [audioInitialized, soundType, enabled, onToggle]);
 
+  // Toggle mute
+  const handleMuteToggle = useCallback(() => {
+    if (!audioInitialized) {
+      initAudioContext();
+      setAudioInitialized(true);
+    }
+    setIsMuted(prev => !prev);
+  }, [audioInitialized]);
+
   // Play sound when beat changes
   const playBeatSound = useCallback((isAccent: boolean, isCountIn: boolean, countBeat: number) => {
-    if (soundType === 'off' || !audioInitialized) return;
+    if (isMuted || soundType === 'off' || !audioInitialized) return;
     playMetronomeClick(soundType, isAccent, volume, isCountIn, countBeat);
-  }, [soundType, volume, audioInitialized]);
+  }, [soundType, volume, audioInitialized, isMuted]);
 
   // Metronome animation loop
   const animate = useCallback(() => {
@@ -98,12 +115,12 @@ export function Metronome({
     // Regular playback phase
     setIsCountingIn(false);
     
-    if (startTime === null) {
+    if (effectiveStartTime === null) {
       animationRef.current = requestAnimationFrame(animate);
       return;
     }
 
-    const elapsed = now - startTime;
+    const elapsed = now - effectiveStartTime;
 
     if (elapsed < 0) {
       // Not started yet, schedule next frame
@@ -128,7 +145,7 @@ export function Metronome({
     }
 
     animationRef.current = requestAnimationFrame(animate);
-  }, [enabled, startTime, countInStartTime, countInBeats, beatInterval, playBeatSound]);
+  }, [enabled, effectiveStartTime, countInStartTime, countInBeats, beatInterval, playBeatSound]);
 
   // Start/stop animation
   useEffect(() => {
@@ -149,14 +166,7 @@ export function Metronome({
   useEffect(() => {
     lastBeatRef.current = -1;
     lastCountInBeatRef.current = -1;
-  }, [startTime, countInStartTime]);
-
-  // Initialize audio when sound is enabled
-  useEffect(() => {
-    if (soundType !== 'off' && !audioInitialized) {
-      // Will be initialized on first interaction
-    }
-  }, [soundType, audioInitialized]);
+  }, [effectiveStartTime, countInStartTime]);
 
   // Handle BPM input
   const handleBpmChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -183,13 +193,12 @@ export function Metronome({
     setVolume(parseFloat(e.target.value));
   };
 
-  // Test sound button
-  const handleTestSound = () => {
-    if (!audioInitialized) {
-      initAudioContext();
-      setAudioInitialized(true);
+  // Handle offset change
+  const handleOffsetChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value, 10);
+    if (!isNaN(value)) {
+      onOffsetChange(value);
     }
-    playMetronomeClick(soundType, true, volume, false, 0);
   };
 
   return (
@@ -265,6 +274,26 @@ export function Metronome({
         </div>
       </div>
 
+      {/* Offset Control */}
+      <div className={styles.offsetControl}>
+        <label className={styles.offsetLabel}>
+          <span>Offset</span>
+          <div className={styles.offsetInputGroup}>
+            <input
+              type="number"
+              value={metronomeOffset}
+              onChange={handleOffsetChange}
+              className={styles.offsetInput}
+              step="10"
+            />
+            <span className={styles.offsetUnit}>ms</span>
+          </div>
+        </label>
+        <p className={styles.offsetHint}>
+          {metronomeOffset > 0 ? 'Metronome delayed' : metronomeOffset < 0 ? 'Metronome early' : 'No offset'}
+        </p>
+      </div>
+
       {/* Sound Controls */}
       <div className={styles.soundControls}>
         <div className={styles.soundRow}>
@@ -281,18 +310,24 @@ export function Metronome({
             </select>
           </label>
           <button 
-            className={styles.testBtn}
-            onClick={handleTestSound}
+            className={`${styles.muteBtn} ${isMuted ? styles.muted : ''}`}
+            onClick={handleMuteToggle}
             disabled={soundType === 'off'}
-            title="Test sound"
+            title={isMuted ? 'Unmute' : 'Mute'}
           >
-            <svg viewBox="0 0 24 24" fill="currentColor">
-              <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
-            </svg>
+            {isMuted ? (
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+              </svg>
+            )}
           </button>
         </div>
         
-        {soundType !== 'off' && (
+        {soundType !== 'off' && !isMuted && (
           <div className={styles.volumeControl}>
             <span className={styles.volumeLabel}>Volume</span>
             <input

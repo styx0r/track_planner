@@ -17,6 +17,9 @@ export default function PlaylistsPage() {
   
   // Count-in settings
   const [countInBeats, setCountInBeats] = useState(4); // Default 4 beats count-in
+  
+  // Manual metronome offset in milliseconds (used when no song-specific offset exists)
+  const [manualMetronomeOffset, setManualMetronomeOffset] = useState(0);
 
   const {
     isConnected,
@@ -153,8 +156,10 @@ export default function PlaylistsPage() {
             startTime={scheduledLocalStartTime}
             countInStartTime={countInStartTime}
             countInBeats={countInBeats}
+            metronomeOffset={playbackState.metronomeOffset ?? manualMetronomeOffset}
             onToggle={toggleMetronome}
             onBpmChange={setMetronomeBpm}
+            onOffsetChange={setManualMetronomeOffset}
           />
 
           {/* Sync Debug Info */}

@@ -7,6 +7,9 @@ input CreateMusicInput {
   bpm: Int
   genre: Genre!
   lyrics: String
+
+  """Metronome offset in milliseconds relative to song start"""
+  metronome_offset: Int
   presentation_type: PresentationType!
   subtitle: String
   title: String!
@@ -45,6 +48,9 @@ type Music {
   file_url: String!
   genre: Genre!
   lyrics: String
+
+  """Metronome offset in milliseconds relative to song start"""
+  metronome_offset: Int
   presentation_type: PresentationType!
   sheet_music_name: String
   sheet_music_url: String
@@ -120,6 +126,9 @@ input UpdateMusicInput {
   bpm: Float
   genre: Genre
   lyrics: String
+
+  """Metronome offset in milliseconds relative to song start"""
+  metronome_offset: Int
   presentation_type: PresentationType
   subtitle: String
   title: String
