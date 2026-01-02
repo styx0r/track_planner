@@ -18,6 +18,6 @@ import { DatabaseService } from '../database.service';
   ],
   controllers: [MusicController],
   providers: [MusicService, MusicResolver, MinioService, DatabaseService],
-  exports: [MusicService],
+  exports: [MusicService, MinioService],
 })
 export class MusicModule {}
