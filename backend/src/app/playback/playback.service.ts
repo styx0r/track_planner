@@ -233,6 +233,17 @@ export class PlaybackService {
   }
 
   /**
+   * Get the executable path for a player, checking environment variables
+   */
+  private getPlayerExecutable(player: string): string {
+    if (player === 'mpv') {
+      // Use MPV_PATH env variable if set (useful for Windows where mpv.exe might not be in PATH)
+      return process.env.MPV_PATH || 'mpv';
+    }
+    return player;
+  }
+
+  /**
    * Try to start a specific audio player
    */
   private async tryStartPlayer(player: string, filePath: string): Promise<void> {
@@ -253,7 +264,8 @@ export class PlaybackService {
           args = [filePath];
       }
 
-      this.playerProcess = spawn(player, args, {
+      const executable = this.getPlayerExecutable(player);
+      this.playerProcess = spawn(executable, args, {
         detached: false,
         stdio: 'ignore',
       });
@@ -263,7 +275,7 @@ export class PlaybackService {
       });
 
       this.playerProcess.on('spawn', () => {
-        this.logger.log(`Started audio playback with ${player}`);
+        this.logger.log(`Started audio playback with ${executable}`);
         resolve();
       });
 
