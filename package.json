@@ -2,7 +2,11 @@
   "name": "@track-planner/source",
   "version": "0.0.0",
   "license": "MIT",
-  "scripts": {},
+  "scripts": {
+    "start:backend": "nx build @track-planner/backend && node backend/dist/main.js",
+    "start:client": "nx build @track-planner/client && npx serve client/out -l 3001",
+    "start:backoffice": "nx start @track-planner/backoffice"
+  },
   "private": true,
   "devDependencies": {
     "@babel/core": "^7.14.5",
