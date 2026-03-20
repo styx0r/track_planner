@@ -23,8 +23,7 @@ export interface PlaybackState {
   scheduledStartTime?: number; // When the song actually starts
   countInStartTime?: number; // When the count-in metronome starts (before song)
   countInBeats?: number; // Number of beats in the count-in
-  sheetMusicUrl?: string; // URL to the sheet music PDF
-  sheetMusicName?: string; // Name of the sheet music file
+  sheets?: SheetMusicItem[]; // Sheet music files for current track
 }
 
 export interface MetronomeState {
@@ -33,12 +32,22 @@ export interface MetronomeState {
   startTime?: number;
 }
 
+export interface SheetMusicItem {
+  uid: string;
+  file_name: string;
+  original_name: string;
+  url: string;
+  order: number;
+  mime_type: string;
+  thumbnail_name?: string;
+  thumbnail_url?: string;
+}
+
 export interface PlaylistTrackSummary {
   uid: string;
   title: string;
   author: string;
-  sheet_music_url?: string;
-  sheet_music_name?: string;
+  sheets?: SheetMusicItem[];
 }
 
 export interface PlaylistTrack {

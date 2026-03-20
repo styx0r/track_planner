@@ -22,7 +22,12 @@ import {
   Grid,
   Chip,
   IconButton,
-  Fab
+  Fab,
+  Card,
+  CardMedia,
+  CardContent,
+  CardActions,
+  Tooltip
 } from '@mui/material';
 import {
   CloudUpload,
@@ -32,12 +37,40 @@ import {
   Add,
   PlayArrow,
   Pause,
-  ArrowBack
+  ArrowBack,
+  ArrowUpward,
+  ArrowDownward,
+  PictureAsPdf,
+  Image as ImageIcon,
+  OpenInNew
 } from '@mui/icons-material';
 import { DataGrid, GridColDef, GridActionsCellItem } from '@mui/x-data-grid';
 import { parseBlob, type IAudioMetadata } from 'music-metadata-browser';
 
 // Types
+interface SheetMusic {
+  uid: string;
+  file_name: string;
+  original_name: string;
+  url: string;
+  order: number;
+  mime_type: string;
+  thumbnail_name?: string;
+  thumbnail_url?: string;
+}
+
+// Local sheet entry (before upload — may have a local File preview)
+interface LocalSheet {
+  uid: string;           // temporary local uid
+  file?: File;           // present for pending (not yet uploaded) sheets
+  previewUrl?: string;   // object URL for local image preview
+  original_name: string;
+  mime_type: string;
+  order: number;
+  // After upload these are populated:
+  uploaded?: SheetMusic;
+}
+
 interface Music {
   uid: string;
   title: string;
@@ -53,8 +86,7 @@ interface Music {
   update_timestamp: string;
   file_url: string;
   file_name: string;
-  sheet_music_url?: string;
-  sheet_music_name?: string;
+  sheets?: SheetMusic[];
 }
 
 interface MusicTableProps {
@@ -85,6 +117,9 @@ enum Genre {
   FOLK = 'FOLK',
   OTHER = 'OTHER'
 }
+
+const ACCEPTED_SHEET_TYPES = '.pdf,.png,.jpg,.jpeg,.tiff,.tif';
+const IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/tiff', 'image/tif'];
 
 const normalizeText = (value: string) => value.replace(/[^a-z0-9]/gi, '').toLowerCase();
 
@@ -129,6 +164,238 @@ interface EditMusicMetadata {
   bpm?: number;
   metronome_offset?: number;
 }
+
+// --- SheetMusicManager component ---
+
+interface SheetMusicManagerProps {
+  sheets: LocalSheet[];
+  onChange: (sheets: LocalSheet[]) => void;
+}
+
+function SheetThumbnail({ sheet }: { sheet: LocalSheet }) {
+  const previewUrl = sheet.previewUrl || sheet.uploaded?.thumbnail_url;
+  const isPdf = sheet.mime_type === 'application/pdf';
+
+  if (isPdf) {
+    return (
+      <Box
+        sx={{
+          width: '100%',
+          height: 120,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          bgcolor: 'grey.100',
+          borderRadius: 1
+        }}
+      >
+        <PictureAsPdf sx={{ fontSize: 48, color: 'error.main' }} />
+      </Box>
+    );
+  }
+
+  if (previewUrl) {
+    return (
+      <CardMedia
+        component="img"
+        height={120}
+        image={previewUrl}
+        alt={sheet.original_name}
+        sx={{ objectFit: 'contain', bgcolor: 'grey.50' }}
+      />
+    );
+  }
+
+  return (
+    <Box
+      sx={{
+        width: '100%',
+        height: 120,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        bgcolor: 'grey.100',
+        borderRadius: 1
+      }}
+    >
+      <ImageIcon sx={{ fontSize: 48, color: 'primary.main' }} />
+    </Box>
+  );
+}
+
+const SheetMusicManager = memo(function SheetMusicManager({ sheets, onChange }: SheetMusicManagerProps) {
+  const handleAddFiles = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0) return;
+
+    const nextOrder = sheets.length > 0 ? Math.max(...sheets.map(s => s.order)) + 1 : 0;
+    const newSheets: LocalSheet[] = files.map((file, idx) => {
+      const isImage = IMAGE_MIME_TYPES.includes(file.type);
+      return {
+        uid: `local-${Date.now()}-${idx}`,
+        file,
+        previewUrl: isImage ? URL.createObjectURL(file) : undefined,
+        original_name: file.name,
+        mime_type: file.type || 'application/octet-stream',
+        order: nextOrder + idx,
+      };
+    });
+
+    onChange([...sheets, ...newSheets]);
+    // Reset input so the same file can be re-added if needed
+    event.target.value = '';
+  }, [sheets, onChange]);
+
+  const handleRemove = useCallback((uid: string) => {
+    const sheet = sheets.find(s => s.uid === uid);
+    if (sheet?.previewUrl) URL.revokeObjectURL(sheet.previewUrl);
+    const remaining = sheets
+      .filter(s => s.uid !== uid)
+      .map((s, idx) => ({ ...s, order: idx }));
+    onChange(remaining);
+  }, [sheets, onChange]);
+
+  const handleMove = useCallback((uid: string, direction: 'up' | 'down') => {
+    const idx = sheets.findIndex(s => s.uid === uid);
+    if (idx < 0) return;
+    if (direction === 'up' && idx === 0) return;
+    if (direction === 'down' && idx === sheets.length - 1) return;
+
+    const reordered = [...sheets];
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+    [reordered[idx], reordered[swapIdx]] = [reordered[swapIdx], reordered[idx]];
+    onChange(reordered.map((s, i) => ({ ...s, order: i })));
+  }, [sheets, onChange]);
+
+  const sorted = useMemo(() => [...sheets].sort((a, b) => a.order - b.order), [sheets]);
+
+  return (
+    <Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+        <Typography variant="subtitle2" color="text.secondary">
+          Sheet Music ({sorted.length})
+        </Typography>
+        <Button
+          component="label"
+          size="small"
+          variant="outlined"
+          startIcon={<Add />}
+        >
+          Add Sheets
+          <input
+            type="file"
+            hidden
+            multiple
+            accept={ACCEPTED_SHEET_TYPES}
+            onChange={handleAddFiles}
+          />
+        </Button>
+      </Box>
+
+      {sorted.length === 0 ? (
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 3,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 1,
+            bgcolor: 'grey.50'
+          }}
+        >
+          <CloudUpload sx={{ fontSize: 32, color: 'text.disabled' }} />
+          <Typography variant="body2" color="text.disabled">
+            No sheets added. Supported: PDF, JPG, PNG, TIFF
+          </Typography>
+        </Paper>
+      ) : (
+        <Grid container spacing={1}>
+          {sorted.map((sheet, idx) => (
+            <Grid key={sheet.uid} size={{ xs: 6, sm: 4, md: 3 }}>
+              <Card variant="outlined" sx={{ height: '100%' }}>
+                <SheetThumbnail sheet={sheet} />
+                <CardContent sx={{ py: 0.5, px: 1 }}>
+                  <Tooltip title={sheet.original_name}>
+                    <Typography
+                      variant="caption"
+                      noWrap
+                      display="block"
+                      sx={{ maxWidth: '100%' }}
+                    >
+                      {sheet.original_name}
+                    </Typography>
+                  </Tooltip>
+                </CardContent>
+                <CardActions sx={{ py: 0.5, px: 0.5, justifyContent: 'space-between' }}>
+                  <Box>
+                    <Tooltip title="Move up">
+                      <span>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleMove(sheet.uid, 'up')}
+                          disabled={idx === 0}
+                        >
+                          <ArrowUpward fontSize="small" />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                    <Tooltip title="Move down">
+                      <span>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleMove(sheet.uid, 'down')}
+                          disabled={idx === sorted.length - 1}
+                        >
+                          <ArrowDownward fontSize="small" />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                  </Box>
+                  <Box>
+                    {sheet.uploaded && (
+                      <Tooltip title="Open in new tab">
+                        <IconButton
+                          size="small"
+                          onClick={() => window.open(sheet.uploaded!.url, '_blank')}
+                        >
+                          <OpenInNew fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                    <Tooltip title="Remove">
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => handleRemove(sheet.uid)}
+                      >
+                        <Delete fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                </CardActions>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+      )}
+    </Box>
+  );
+});
+
+// Convert stored SheetMusic to LocalSheet
+function toLocalSheet(sheet: SheetMusic): LocalSheet {
+  return {
+    uid: sheet.uid,
+    original_name: sheet.original_name,
+    mime_type: sheet.mime_type,
+    order: sheet.order,
+    previewUrl: sheet.thumbnail_url || (IMAGE_MIME_TYPES.includes(sheet.mime_type) ? sheet.url : undefined),
+    uploaded: sheet,
+  };
+}
+
+// --- MusicTable component ---
 
 const MusicTable = memo(function MusicTable({
   rows,
@@ -177,22 +444,18 @@ const MusicTable = memo(function MusicTable({
     { field: 'bpm', headerName: 'BPM', width: 80, type: 'number' },
     { field: 'metronome_offset', headerName: 'Offset (ms)', width: 100, type: 'number' },
     {
-      field: 'sheet_music_name',
-      headerName: 'Sheet Music',
-      width: 120,
-      renderCell: (params) => (
-        params.value ? (
-          <Chip
-            label="Available"
-            size="small"
-            color="success"
-            onClick={() => window.open(params.row.sheet_music_url, '_blank')}
-            style={{ cursor: 'pointer' }}
-          />
+      field: 'sheets',
+      headerName: 'Sheets',
+      width: 100,
+      sortable: false,
+      renderCell: (params) => {
+        const count = (params.value as SheetMusic[] | undefined)?.length ?? 0;
+        return count > 0 ? (
+          <Chip label={`${count} sheet${count > 1 ? 's' : ''}`} size="small" color="success" />
         ) : (
           <Chip label="None" size="small" variant="outlined" />
-        )
-      )
+        );
+      }
     },
     {
       field: 'actions',
@@ -233,6 +496,8 @@ const MusicTable = memo(function MusicTable({
   );
 });
 
+// --- Main page ---
+
 export default function MusicManagement() {
   const [music, setMusic] = useState<Music[]>([]);
   const [loading, setLoading] = useState(false);
@@ -241,6 +506,7 @@ export default function MusicManagement() {
   const [selectedMusic, setSelectedMusic] = useState<Music | null>(null);
   const [editMetadata, setEditMetadata] = useState<EditMusicMetadata | null>(null);
   const [editLyrics, setEditLyrics] = useState('');
+  const [editSheets, setEditSheets] = useState<LocalSheet[]>([]);
   const [searchFilters, setSearchFilters] = useState<SearchFilters>({});
   const [appliedFilters, setAppliedFilters] = useState<SearchFilters>({});
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
@@ -249,7 +515,7 @@ export default function MusicManagement() {
   const [currentlyPlaying, setCurrentlyPlaying] = useState<string | null>(null);
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
 
-  // Form states
+  // Upload form state
   const [uploadForm, setUploadForm] = useState<CreateMusicInput>({
     title: '',
     author: '',
@@ -257,13 +523,14 @@ export default function MusicManagement() {
     genre: Genre.OTHER
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [selectedSheetMusic, setSelectedSheetMusic] = useState<File | null>(null);
+  const [uploadSheets, setUploadSheets] = useState<LocalSheet[]>([]);
 
   const closeEditDialog = useCallback(() => {
     setEditDialogOpen(false);
     setSelectedMusic(null);
     setEditMetadata(null);
     setEditLyrics('');
+    setEditSheets([]);
   }, []);
 
   // Load music data
@@ -291,20 +558,28 @@ export default function MusicManagement() {
                 update_timestamp
                 file_url
                 file_name
-                sheet_music_url
-                sheet_music_name
+                sheets {
+                  uid
+                  file_name
+                  original_name
+                  url
+                  order
+                  mime_type
+                  thumbnail_name
+                  thumbnail_url
+                }
               }
             }
           `,
           variables: { searchInput: filters }
         })
       });
-      
+
       const data = await response.json();
       if (data.errors) {
         throw new Error(data.errors[0].message);
       }
-      
+
       setMusic(data.data.searchMusic);
     } catch (error) {
       setSnackbar({ open: true, message: `Error loading music: ${error}`, severity: 'error' });
@@ -375,9 +650,15 @@ export default function MusicManagement() {
 
     const formData = new FormData();
     formData.append('file', selectedFile);
-    if (selectedSheetMusic) {
-      formData.append('sheetMusic', selectedSheetMusic);
+
+    // Append all pending sheet files in order
+    const sorted = [...uploadSheets].sort((a, b) => a.order - b.order);
+    for (const sheet of sorted) {
+      if (sheet.file) {
+        formData.append('sheetMusic', sheet.file);
+      }
     }
+
     formData.append('operations', JSON.stringify({
       query: `
         mutation CreateMusic($createMusicInput: CreateMusicInput!) {
@@ -411,14 +692,16 @@ export default function MusicManagement() {
         genre: Genre.OTHER
       });
       setSelectedFile(null);
-      setSelectedSheetMusic(null);
+      // Revoke any object URLs
+      uploadSheets.forEach(s => { if (s.previewUrl) URL.revokeObjectURL(s.previewUrl); });
+      setUploadSheets([]);
       await loadMusic(appliedFilters);
     } catch (error) {
       setSnackbar({ open: true, message: `Upload failed: ${error}`, severity: 'error' });
     }
   };
 
-  // Update music
+  // Update music metadata
   const handleUpdate = async () => {
     if (!editMetadata) return;
 
@@ -456,6 +739,72 @@ export default function MusicManagement() {
       const data = await response.json();
       if (data.errors) {
         throw new Error(data.errors[0].message);
+      }
+
+      // Now handle sheet changes: upload new sheets, delete removed ones, reorder
+      const musicUid = editMetadata.uid;
+      const originalSheets = selectedMusic?.sheets || [];
+
+      // Determine deleted sheets
+      const currentUploadedUids = new Set(
+        editSheets
+          .filter(s => s.uploaded && !s.uploaded.uid.startsWith('legacy-'))
+          .map(s => s.uploaded!.uid)
+      );
+      const deletedSheets = originalSheets.filter(s => !currentUploadedUids.has(s.uid));
+      for (const s of deletedSheets) {
+        await fetch(`/api/music/${musicUid}/sheets/${s.uid}`, { method: 'DELETE' });
+      }
+
+      // Upload new sheets (those with file but no uploaded)
+      const newSheets = editSheets.filter(s => s.file && !s.uploaded);
+      if (newSheets.length > 0) {
+        const sheetFormData = new FormData();
+        const sorted = [...newSheets].sort((a, b) => a.order - b.order);
+        for (const sheet of sorted) {
+          sheetFormData.append('sheets', sheet.file!);
+        }
+        await fetch(`/api/music/${musicUid}/sheets`, {
+          method: 'POST',
+          body: sheetFormData
+        });
+      }
+
+      // Reorder: send the final order of all uploaded sheets
+      // Reload to get fresh uids after adds
+      const freshResponse = await fetch('/api/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `query GetMusic($uid: String!) { getMusicById(uid: $uid) { sheets { uid order original_name } } }`,
+          variables: { uid: musicUid }
+        })
+      });
+      const freshData = await freshResponse.json();
+      const freshSheets: SheetMusic[] = freshData?.data?.getMusicById?.sheets || [];
+
+      // Build the desired order: match by original_name position in editSheets
+      const sorted = [...editSheets].sort((a, b) => a.order - b.order);
+      const orderedUids: string[] = sorted
+        .map(ls => {
+          if (ls.uploaded && !ls.uploaded.uid.startsWith('legacy-')) {
+            return ls.uploaded.uid;
+          }
+          // Newly uploaded: find by original_name in fresh sheets
+          const match = freshSheets.find(
+            fs => fs.original_name === ls.original_name &&
+              !sorted.some(other => other !== ls && other.uploaded?.uid === fs.uid)
+          );
+          return match?.uid;
+        })
+        .filter(Boolean) as string[];
+
+      if (orderedUids.length > 1) {
+        await fetch(`/api/music/${musicUid}/sheets/reorder`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderedUids })
+        });
       }
 
       setSnackbar({ open: true, message: 'Music updated successfully!', severity: 'success' });
@@ -529,6 +878,7 @@ export default function MusicManagement() {
       metronome_offset: row.metronome_offset
     });
     setEditLyrics(row.lyrics || '');
+    setEditSheets((row.sheets || []).map(toLocalSheet));
     setEditDialogOpen(true);
   }, []);
 
@@ -639,7 +989,7 @@ export default function MusicManagement() {
       </Fab>
 
       {/* Upload Dialog */}
-      <Dialog open={uploadDialogOpen} onClose={() => setUploadDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={uploadDialogOpen} onClose={() => setUploadDialogOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle>Upload New Music</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
@@ -753,20 +1103,7 @@ export default function MusicManagement() {
               />
             </Grid>
             <Grid size={12}>
-              <Button
-                variant="outlined"
-                component="label"
-                fullWidth
-                startIcon={<CloudUpload />}
-              >
-                {selectedSheetMusic ? selectedSheetMusic.name : 'Upload Sheet Music (Optional)'}
-                <input
-                  type="file"
-                  hidden
-                  accept=".pdf,.png,.jpg,.jpeg"
-                  onChange={(e) => setSelectedSheetMusic(e.target.files?.[0] || null)}
-                />
-              </Button>
+              <SheetMusicManager sheets={uploadSheets} onChange={setUploadSheets} />
             </Grid>
           </Grid>
         </DialogContent>
@@ -777,7 +1114,7 @@ export default function MusicManagement() {
       </Dialog>
 
       {/* Edit Dialog */}
-      <Dialog open={editDialogOpen} onClose={closeEditDialog} maxWidth="sm" fullWidth>
+      <Dialog open={editDialogOpen} onClose={closeEditDialog} maxWidth="md" fullWidth>
         <DialogTitle>Edit Music</DialogTitle>
         <DialogContent>
           {editMetadata && (
@@ -804,8 +1141,8 @@ export default function MusicManagement() {
                   fullWidth
                   label="Author"
                   required
-                   value={editMetadata.author}
-                   onChange={(e) => setEditMetadata((prev) => prev ? { ...prev, author: e.target.value } : prev)}
+                  value={editMetadata.author}
+                  onChange={(e) => setEditMetadata((prev) => prev ? { ...prev, author: e.target.value } : prev)}
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
@@ -874,16 +1211,9 @@ export default function MusicManagement() {
                   placeholder="Enter song lyrics here..."
                 />
               </Grid>
-              {selectedMusic?.sheet_music_name && (
-                <Grid size={12}>
-                  <Chip
-                    label={`Sheet Music: ${selectedMusic.sheet_music_name}`}
-                    color="success"
-                    onClick={() => window.open(selectedMusic.sheet_music_url, '_blank')}
-                    style={{ cursor: 'pointer' }}
-                  />
-                </Grid>
-              )}
+              <Grid size={12}>
+                <SheetMusicManager sheets={editSheets} onChange={setEditSheets} />
+              </Grid>
             </Grid>
           )}
         </DialogContent>

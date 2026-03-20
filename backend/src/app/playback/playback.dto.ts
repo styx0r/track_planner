@@ -1,4 +1,5 @@
 import { ObjectType, Field, Int, Float, ID } from '@nestjs/graphql';
+import { SheetMusic } from '../music/music.dto';
 
 /**
  * Playback state types for client-server synchronization
@@ -53,11 +54,8 @@ export class PlaybackState {
   @Field(() => Int, { nullable: true })
   countInBeats?: number; // Number of count-in beats
 
-  @Field({ nullable: true })
-  sheetMusicUrl?: string; // URL to the sheet music PDF
-
-  @Field({ nullable: true })
-  sheetMusicName?: string; // Name of the sheet music file
+  @Field(() => [SheetMusic], { nullable: true })
+  sheets?: SheetMusic[]; // Sheet music files for current track
 }
 
 /**

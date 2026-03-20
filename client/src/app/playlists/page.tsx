@@ -121,29 +121,31 @@ export default function PlaylistsPage() {
     }
   }, []);
 
-  // Get current sheet music URL from playback state or selected playlist
+  // Get current sheet music from playback state or selected playlist (uses first sheet)
   const currentSheetMusic = useMemo(() => {
     // First priority: from playback state (playing track)
-    if (playbackState.sheetMusicUrl) {
+    const stateSheet = playbackState.sheets?.[0];
+    if (stateSheet) {
       return {
-        url: playbackState.sheetMusicUrl,
+        url: stateSheet.url,
         title: playbackState.currentTrackTitle || 'Sheet Music',
       };
     }
-    
+
     // Second priority: from selected playlist's current track
     if (selectedPlaylist && playbackState.currentTrackIndex !== undefined) {
       const track = selectedPlaylist.tracks[playbackState.currentTrackIndex];
-      if (track?.music?.sheet_music_url) {
+      const firstSheet = track?.music?.sheets?.[0];
+      if (firstSheet) {
         return {
-          url: track.music.sheet_music_url,
-          title: track.music.title || 'Sheet Music',
+          url: firstSheet.url,
+          title: track.music?.title || 'Sheet Music',
         };
       }
     }
-    
+
     return null;
-  }, [playbackState.sheetMusicUrl, playbackState.currentTrackTitle, playbackState.currentTrackIndex, selectedPlaylist]);
+  }, [playbackState.sheets, playbackState.currentTrackTitle, playbackState.currentTrackIndex, selectedPlaylist]);
 
   return (
     <div className={`${styles.page} ${isPerformanceMode ? styles.performanceMode : ''}`}>

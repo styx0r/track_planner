@@ -160,10 +160,11 @@ export class PlaylistService {
       `
         FOR doc IN @@collection
           FILTER doc.uid IN @uids
-          RETURN { 
-            uid: doc.uid, 
-            title: doc.title, 
+          RETURN {
+            uid: doc.uid,
+            title: doc.title,
             author: doc.author,
+            sheets: doc.sheets,
             sheet_music_name: doc.sheet_music_name
           }
       `,
@@ -174,7 +175,7 @@ export class PlaylistService {
     );
 
     const documents = await cursor.all();
-    
+
     // Refresh sheet music URLs
     const result: Record<string, PlaylistTrackSummary> = {};
     for (const item of documents) {
@@ -182,18 +183,42 @@ export class PlaylistService {
         uid: item.uid,
         title: item.title,
         author: item.author,
+        sheets: [],
       };
-      
-      // Refresh sheet music URL if available
-      if (item.sheet_music_name) {
+
+      if (item.sheets && item.sheets.length > 0) {
+        // New multi-sheet format
+        summary.sheets = await Promise.all(
+          item.sheets.map(async (sheet: any) => {
+            try {
+              const url = await this.minioService.getFileUrl(sheet.file_name);
+              const result: any = { ...sheet, url };
+              if (sheet.thumbnail_name) {
+                result.thumbnail_url = await this.minioService.getFileUrl(sheet.thumbnail_name);
+              }
+              return result;
+            } catch {
+              return sheet;
+            }
+          })
+        );
+      } else if (item.sheet_music_name) {
+        // Backward compat: old single-sheet format
         try {
-          summary.sheet_music_url = await this.minioService.getFileUrl(item.sheet_music_name);
-          summary.sheet_music_name = item.sheet_music_name;
+          const url = await this.minioService.getFileUrl(item.sheet_music_name);
+          summary.sheets = [{
+            uid: 'legacy-' + item.uid,
+            file_name: item.sheet_music_name,
+            original_name: item.sheet_music_name,
+            url,
+            order: 0,
+            mime_type: 'application/pdf',
+          }];
         } catch (e) {
           this.logger.warn(`Could not refresh sheet music URL for: ${item.sheet_music_name}`);
         }
       }
-      
+
       result[item.uid] = summary;
     }
     

@@ -25,12 +25,17 @@ export async function POST(request: NextRequest) {
       // Create a new FormData for the backend
       const backendFormData = new FormData();
 
-      // Add files
+      // Add audio file
       const file = formData.get('file') as File;
-      const sheetMusic = formData.get('sheetMusic') as File;
-
       if (file) backendFormData.append('file', file);
-      if (sheetMusic) backendFormData.append('sheetMusic', sheetMusic);
+
+      // Add all sheet music files (supports multiple)
+      const allEntries = Array.from(formData.entries());
+      for (const [key, value] of allEntries) {
+        if (key === 'sheetMusic' && value instanceof File) {
+          backendFormData.append('sheetMusic', value);
+        }
+      }
 
       // Add all form fields from createMusicInput
       Object.entries(variables.createMusicInput).forEach(([key, value]) => {

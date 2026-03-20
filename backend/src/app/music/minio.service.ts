@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Client as MinioClient } from 'minio';
 import { v4 as uuidv4 } from 'uuid';
+import * as sharp from 'sharp';
 
 // Minimal file type to avoid depending on Express types
 interface UploadedFile {
@@ -10,6 +11,10 @@ interface UploadedFile {
   size: number;
   mimetype: string;
 }
+
+const IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/tiff', 'image/tif'];
+const THUMBNAIL_MAX_WIDTH = 200;
+const THUMBNAIL_MAX_HEIGHT = 280;
 
 @Injectable()
 export class MinioService {
@@ -107,8 +112,9 @@ export class MinioService {
 
   async uploadSheetMusic(
     file: UploadedFile
-  ): Promise<{ fileName: string; url: string }> {
-    const fileName = `sheet-music-${uuidv4()}-${file.originalname}`;
+  ): Promise<{ fileName: string; url: string; thumbnailName?: string; thumbnailUrl?: string }> {
+    const uid = uuidv4();
+    const fileName = `sheet-music-${uid}-${file.originalname}`;
 
     try {
       await this.minioClient.putObject(
@@ -128,6 +134,37 @@ export class MinioService {
       );
 
       this.logger.log(`Sheet music uploaded successfully: ${fileName}`);
+
+      // Generate thumbnail for image types
+      if (IMAGE_MIME_TYPES.includes(file.mimetype)) {
+        try {
+          const thumbnailBuffer = await sharp(file.buffer)
+            .resize(THUMBNAIL_MAX_WIDTH, THUMBNAIL_MAX_HEIGHT, { fit: 'inside' })
+            .jpeg({ quality: 80 })
+            .toBuffer();
+
+          const thumbnailName = `thumb-${uid}.jpg`;
+          await this.minioClient.putObject(
+            this.bucketName,
+            thumbnailName,
+            thumbnailBuffer,
+            thumbnailBuffer.length,
+            { 'Content-Type': 'image/jpeg' }
+          );
+
+          const thumbnailUrl = await this.minioClient.presignedGetObject(
+            this.bucketName,
+            thumbnailName,
+            24 * 60 * 60
+          );
+
+          this.logger.log(`Thumbnail generated: ${thumbnailName}`);
+          return { fileName, url, thumbnailName, thumbnailUrl };
+        } catch (thumbError: any) {
+          this.logger.warn(`Could not generate thumbnail for ${fileName}: ${thumbError?.message}`);
+        }
+      }
+
       return { fileName, url };
     } catch (error: any) {
       this.logger.error(`Error uploading sheet music: ${error?.message}`);

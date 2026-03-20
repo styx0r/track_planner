@@ -52,8 +52,7 @@ type Music {
   """Metronome offset in milliseconds relative to song start"""
   metronome_offset: Int
   presentation_type: PresentationType!
-  sheet_music_name: String
-  sheet_music_url: String
+  sheets: [SheetMusic!]
   subtitle: String
   title: String!
   uid: ID!
@@ -100,8 +99,7 @@ input PlaylistTrackInput {
 
 type PlaylistTrackSummary {
   author: String!
-  sheet_music_name: String
-  sheet_music_url: String
+  sheets: [SheetMusic!]
   title: String!
   uid: ID!
 }
@@ -121,6 +119,17 @@ type Query {
   playlist(uid: String!): Playlist!
   playlists: [Playlist!]!
   searchMusic(searchInput: MusicSearchInput): [Music!]!
+}
+
+type SheetMusic {
+  file_name: String!
+  mime_type: String!
+  order: Int!
+  original_name: String!
+  thumbnail_name: String
+  thumbnail_url: String
+  uid: ID!
+  url: String!
 }
 
 input UpdateMusicInput {

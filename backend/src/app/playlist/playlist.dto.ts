@@ -6,6 +6,7 @@ import {
   Int,
   GraphQLISODateTime,
 } from '@nestjs/graphql';
+import { SheetMusic } from '../music/music.dto';
 import {
   IsString,
   IsOptional,
@@ -27,11 +28,8 @@ export class PlaylistTrackSummary {
   @Field()
   author!: string;
 
-  @Field({ nullable: true })
-  sheet_music_url?: string;
-
-  @Field({ nullable: true })
-  sheet_music_name?: string;
+  @Field(() => [SheetMusic], { nullable: true })
+  sheets?: SheetMusic[];
 }
 
 @ObjectType()

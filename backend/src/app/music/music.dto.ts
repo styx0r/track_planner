@@ -34,6 +34,33 @@ registerEnumType(PresentationType, { name: 'PresentationType' });
 registerEnumType(Genre, { name: 'Genre' });
 
 @ObjectType()
+export class SheetMusic {
+  @Field(() => ID)
+  uid!: string;
+
+  @Field()
+  file_name!: string;
+
+  @Field()
+  original_name!: string;
+
+  @Field()
+  url!: string;
+
+  @Field(() => Int)
+  order!: number;
+
+  @Field()
+  mime_type!: string;
+
+  @Field({ nullable: true })
+  thumbnail_name?: string;
+
+  @Field({ nullable: true })
+  thumbnail_url?: string;
+}
+
+@ObjectType()
 export class Music {
   @Field(() => ID)
   uid!: string;
@@ -77,11 +104,8 @@ export class Music {
   @Field()
   file_name!: string;
 
-  @Field({ nullable: true })
-  sheet_music_url?: string;
-
-  @Field({ nullable: true })
-  sheet_music_name?: string;
+  @Field(() => [SheetMusic], { nullable: true })
+  sheets?: SheetMusic[];
 }
 
 @InputType()

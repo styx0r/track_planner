@@ -127,8 +127,7 @@ export class PlaybackService {
       scheduledStartTime: songStartTime,
       countInStartTime: effectiveCountInBeats > 0 ? countInStartTime : undefined,
       countInBeats: effectiveCountInBeats > 0 ? effectiveCountInBeats : undefined,
-      sheetMusicUrl: music.sheet_music_url,
-      sheetMusicName: music.sheet_music_name,
+      sheets: (music as any).sheets || [],
     };
 
     // Update metronome state
