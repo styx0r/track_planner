@@ -4,6 +4,32 @@ import { MinioService } from './minio.service';
 import { CreateMusicInput, UpdateMusicInput, MusicSearchInput, Music, SheetMusic } from './music.dto';
 import { v4 as uuidv4 } from 'uuid';
 
+interface MulterFile {
+  originalname: string;
+  buffer: Buffer;
+  size: number;
+  mimetype: string;
+}
+
+// Converts the array returned by uploadSheetMusic into SheetMusic records starting at the given order index
+async function uploadFileToSheets(
+  minioService: MinioService,
+  file: MulterFile,
+  startOrder: number,
+): Promise<SheetMusic[]> {
+  const results = await minioService.uploadSheetMusic(file);
+  return results.map((r, idx) => ({
+    uid: uuidv4(),
+    file_name: r.fileName,
+    original_name: r.originalName,
+    url: r.url,
+    order: startOrder + idx,
+    mime_type: 'image/png',
+    thumbnail_name: r.thumbnailName,
+    thumbnail_url: r.thumbnailUrl,
+  }));
+}
+
 @Injectable()
 export class MusicService {
   private readonly logger = new Logger(MusicService.name);
@@ -70,22 +96,12 @@ export class MusicService {
       // Upload audio file to Minio
       const { fileName, url } = await this.minioService.uploadFile(file);
 
-      // Upload sheet music files
+      // Upload sheet music files (PDFs are expanded to one entry per page)
       const sheets: SheetMusic[] = [];
       if (sheetMusicFiles && sheetMusicFiles.length > 0) {
-        for (let i = 0; i < sheetMusicFiles.length; i++) {
-          const { fileName: sheetFileName, url: sheetUrl, thumbnailName, thumbnailUrl } =
-            await this.minioService.uploadSheetMusic(sheetMusicFiles[i]);
-          sheets.push({
-            uid: uuidv4(),
-            file_name: sheetFileName,
-            original_name: sheetMusicFiles[i].originalname,
-            url: sheetUrl,
-            order: i,
-            mime_type: sheetMusicFiles[i].mimetype,
-            thumbnail_name: thumbnailName,
-            thumbnail_url: thumbnailUrl,
-          });
+        for (const file of sheetMusicFiles) {
+          const newSheets = await uploadFileToSheets(this.minioService, file, sheets.length);
+          sheets.push(...newSheets);
         }
       }
 
@@ -311,19 +327,9 @@ export class MusicService {
         : 0;
 
       const newSheets: SheetMusic[] = [];
-      for (let i = 0; i < files.length; i++) {
-        const { fileName, url, thumbnailName, thumbnailUrl } =
-          await this.minioService.uploadSheetMusic(files[i]);
-        newSheets.push({
-          uid: uuidv4(),
-          file_name: fileName,
-          original_name: files[i].originalname,
-          url,
-          order: nextOrder + i,
-          mime_type: files[i].mimetype,
-          thumbnail_name: thumbnailName,
-          thumbnail_url: thumbnailUrl,
-        });
+      for (const file of files) {
+        const expanded = await uploadFileToSheets(this.minioService, file, nextOrder + newSheets.length);
+        newSheets.push(...expanded);
       }
 
       const updatedSheets = [...existingSheets, ...newSheets];

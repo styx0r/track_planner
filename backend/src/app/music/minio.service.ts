@@ -2,7 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Client as MinioClient } from 'minio';
 import { v4 as uuidv4 } from 'uuid';
-import * as sharp from 'sharp';
+import sharp from 'sharp';
+import * as path from 'path';
 
 // Minimal file type to avoid depending on Express types
 interface UploadedFile {
@@ -12,9 +13,18 @@ interface UploadedFile {
   mimetype: string;
 }
 
-const IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/tiff', 'image/tif'];
+export interface SheetUploadResult {
+  fileName: string;
+  url: string;
+  originalName: string;
+  thumbnailName?: string;
+  thumbnailUrl?: string;
+}
+
 const THUMBNAIL_MAX_WIDTH = 200;
 const THUMBNAIL_MAX_HEIGHT = 280;
+// Scale factor for PDF rendering: 2x = 144 DPI (decent quality for sheet music)
+const PDF_RENDER_SCALE = 2;
 
 @Injectable()
 export class MinioService {
@@ -57,6 +67,29 @@ export class MinioService {
     }
   }
 
+  /**
+   * Converts each page of a PDF buffer to a PNG buffer using mupdf (WASM, no native deps).
+   * Returns one Buffer per page, in order.
+   */
+  private async convertPdfToImages(buffer: Buffer): Promise<Buffer[]> {
+    // webpackIgnore keeps this as a native import() so Node resolves the ESM module directly
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const mupdf = await import(/* webpackIgnore: true */ 'mupdf');
+    const doc = mupdf.Document.openDocument(buffer, 'application/pdf');
+    const pageCount = doc.countPages();
+    const scale = mupdf.Matrix.scale(PDF_RENDER_SCALE, PDF_RENDER_SCALE);
+    const pages: Buffer[] = [];
+
+    for (let i = 0; i < pageCount; i++) {
+      const page = doc.loadPage(i);
+      const pixmap = page.toPixmap(scale, mupdf.ColorSpace.DeviceRGB, false, true);
+      const pngBytes = pixmap.asPNG();
+      pages.push(Buffer.from(pngBytes));
+    }
+
+    return pages;
+  }
+
   async uploadFile(
     file: UploadedFile
   ): Promise<{ fileName: string; url: string }> {
@@ -68,15 +101,13 @@ export class MinioService {
         fileName,
         file.buffer,
         file.size,
-        {
-          'Content-Type': file.mimetype,
-        }
+        { 'Content-Type': file.mimetype }
       );
 
       const url = await this.minioClient.presignedGetObject(
         this.bucketName,
         fileName,
-        24 * 60 * 60 // 24 hours
+        24 * 60 * 60
       );
 
       this.logger.log(`File uploaded successfully: ${fileName}`);
@@ -102,7 +133,7 @@ export class MinioService {
       return await this.minioClient.presignedGetObject(
         this.bucketName,
         fileName,
-        24 * 60 * 60 // 24 hours
+        24 * 60 * 60
       );
     } catch (error: any) {
       this.logger.error(`Error getting file URL: ${error?.message}`);
@@ -110,65 +141,95 @@ export class MinioService {
     }
   }
 
-  async uploadSheetMusic(
-    file: UploadedFile
-  ): Promise<{ fileName: string; url: string; thumbnailName?: string; thumbnailUrl?: string }> {
+  /**
+   * Uploads a sheet music file.
+   * - For images (JPG, PNG, TIFF): stores as-is + generates a thumbnail. Returns 1 result.
+   * - For PDFs: converts each page to PNG, stores each separately. Returns N results (one per page).
+   */
+  async uploadSheetMusic(file: UploadedFile): Promise<SheetUploadResult[]> {
+    if (file.mimetype === 'application/pdf') {
+      return this.uploadPdfAsImages(file);
+    }
+    return [await this.uploadImageSheet(file.buffer, file.originalname, file.mimetype)];
+  }
+
+  private async uploadPdfAsImages(file: UploadedFile): Promise<SheetUploadResult[]> {
+    const baseName = path.basename(file.originalname, path.extname(file.originalname));
+    let pageBuffers: Buffer[];
+
+    try {
+      pageBuffers = await this.convertPdfToImages(file.buffer);
+      this.logger.log(`PDF "${file.originalname}" converted to ${pageBuffers.length} page(s)`);
+    } catch (error: any) {
+      this.logger.error(`PDF conversion failed for "${file.originalname}": ${error?.message}`);
+      throw new Error(`Failed to convert PDF to images: ${error?.message}`);
+    }
+
+    const results: SheetUploadResult[] = [];
+    for (let i = 0; i < pageBuffers.length; i++) {
+      const pageName = pageBuffers.length === 1
+        ? `${baseName}.png`
+        : `${baseName} (${i + 1}).png`;
+      results.push(await this.uploadImageSheet(pageBuffers[i], pageName, 'image/png'));
+    }
+    return results;
+  }
+
+  private async uploadImageSheet(
+    imageBuffer: Buffer,
+    originalName: string,
+    mimeType: string
+  ): Promise<SheetUploadResult> {
     const uid = uuidv4();
-    const fileName = `sheet-music-${uid}-${file.originalname}`;
+    const fileName = `sheet-music-${uid}-${originalName}`;
 
     try {
       await this.minioClient.putObject(
         this.bucketName,
         fileName,
-        file.buffer,
-        file.size,
-        {
-          'Content-Type': file.mimetype,
-        }
+        imageBuffer,
+        imageBuffer.length,
+        { 'Content-Type': mimeType }
       );
 
       const url = await this.minioClient.presignedGetObject(
         this.bucketName,
         fileName,
-        24 * 60 * 60 // 24 hours
+        24 * 60 * 60
       );
 
-      this.logger.log(`Sheet music uploaded successfully: ${fileName}`);
+      this.logger.log(`Sheet uploaded: ${fileName}`);
 
-      // Generate thumbnail for image types
-      if (IMAGE_MIME_TYPES.includes(file.mimetype)) {
-        try {
-          const thumbnailBuffer = await sharp(file.buffer)
-            .resize(THUMBNAIL_MAX_WIDTH, THUMBNAIL_MAX_HEIGHT, { fit: 'inside' })
-            .jpeg({ quality: 80 })
-            .toBuffer();
+      // Generate thumbnail
+      try {
+        const thumbnailBuffer = await sharp(imageBuffer)
+          .resize(THUMBNAIL_MAX_WIDTH, THUMBNAIL_MAX_HEIGHT, { fit: 'inside' })
+          .jpeg({ quality: 80 })
+          .toBuffer();
 
-          const thumbnailName = `thumb-${uid}.jpg`;
-          await this.minioClient.putObject(
-            this.bucketName,
-            thumbnailName,
-            thumbnailBuffer,
-            thumbnailBuffer.length,
-            { 'Content-Type': 'image/jpeg' }
-          );
+        const thumbnailName = `thumb-${uid}.jpg`;
+        await this.minioClient.putObject(
+          this.bucketName,
+          thumbnailName,
+          thumbnailBuffer,
+          thumbnailBuffer.length,
+          { 'Content-Type': 'image/jpeg' }
+        );
 
-          const thumbnailUrl = await this.minioClient.presignedGetObject(
-            this.bucketName,
-            thumbnailName,
-            24 * 60 * 60
-          );
+        const thumbnailUrl = await this.minioClient.presignedGetObject(
+          this.bucketName,
+          thumbnailName,
+          24 * 60 * 60
+        );
 
-          this.logger.log(`Thumbnail generated: ${thumbnailName}`);
-          return { fileName, url, thumbnailName, thumbnailUrl };
-        } catch (thumbError: any) {
-          this.logger.warn(`Could not generate thumbnail for ${fileName}: ${thumbError?.message}`);
-        }
+        return { fileName, url, originalName, thumbnailName, thumbnailUrl };
+      } catch (thumbError: any) {
+        this.logger.warn(`Could not generate thumbnail for ${fileName}: ${thumbError?.message}`);
+        return { fileName, url, originalName };
       }
-
-      return { fileName, url };
     } catch (error: any) {
-      this.logger.error(`Error uploading sheet music: ${error?.message}`);
-      throw new Error(`Failed to upload sheet music: ${error?.message}`);
+      this.logger.error(`Error uploading sheet: ${error?.message}`);
+      throw new Error(`Failed to upload sheet: ${error?.message}`);
     }
   }
 }

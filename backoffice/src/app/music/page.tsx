@@ -40,8 +40,6 @@ import {
   ArrowBack,
   ArrowUpward,
   ArrowDownward,
-  PictureAsPdf,
-  Image as ImageIcon,
   OpenInNew
 } from '@mui/icons-material';
 import { DataGrid, GridColDef, GridActionsCellItem } from '@mui/x-data-grid';
@@ -173,26 +171,7 @@ interface SheetMusicManagerProps {
 }
 
 function SheetThumbnail({ sheet }: { sheet: LocalSheet }) {
-  const previewUrl = sheet.previewUrl || sheet.uploaded?.thumbnail_url;
-  const isPdf = sheet.mime_type === 'application/pdf';
-
-  if (isPdf) {
-    return (
-      <Box
-        sx={{
-          width: '100%',
-          height: 120,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          bgcolor: 'grey.100',
-          borderRadius: 1
-        }}
-      >
-        <PictureAsPdf sx={{ fontSize: 48, color: 'error.main' }} />
-      </Box>
-    );
-  }
+  const previewUrl = sheet.previewUrl || sheet.uploaded?.thumbnail_url || sheet.uploaded?.url;
 
   if (previewUrl) {
     return (
@@ -206,6 +185,7 @@ function SheetThumbnail({ sheet }: { sheet: LocalSheet }) {
     );
   }
 
+  // Pending upload, no local preview yet (e.g. TIFF before upload)
   return (
     <Box
       sx={{
@@ -218,7 +198,7 @@ function SheetThumbnail({ sheet }: { sheet: LocalSheet }) {
         borderRadius: 1
       }}
     >
-      <ImageIcon sx={{ fontSize: 48, color: 'primary.main' }} />
+      <CloudUpload sx={{ fontSize: 48, color: 'text.disabled' }} />
     </Box>
   );
 }
