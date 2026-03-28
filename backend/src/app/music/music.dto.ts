@@ -95,14 +95,17 @@ export class Music {
   @Field(() => Int, { nullable: true, description: 'Metronome offset in milliseconds relative to song start' })
   metronome_offset?: number;
 
+  @Field(() => Int, { nullable: true, description: 'Duration in seconds' })
+  duration?: number;
+
   @Field({ nullable: true })
   lyrics?: string;
 
-  @Field()
-  file_url!: string;
+  @Field({ nullable: true })
+  file_url?: string;
 
-  @Field()
-  file_name!: string;
+  @Field({ nullable: true })
+  file_name?: string;
 
   @Field(() => [SheetMusic], { nullable: true })
   sheets?: SheetMusic[];
@@ -145,6 +148,11 @@ export class CreateMusicInput {
   @IsOptional()
   @IsNumber()
   metronome_offset?: number;
+
+  @Field(() => Int, { nullable: true, description: 'Duration in seconds' })
+  @IsOptional()
+  @IsNumber()
+  duration?: number;
 
   @Field({ nullable: true })
   @IsOptional()
@@ -197,6 +205,11 @@ export class UpdateMusicInput {
   @IsOptional()
   @IsNumber()
   metronome_offset?: number;
+
+  @Field(() => Int, { nullable: true, description: 'Duration in seconds' })
+  @IsOptional()
+  @IsNumber()
+  duration?: number;
 
   @Field({ nullable: true })
   @IsOptional()

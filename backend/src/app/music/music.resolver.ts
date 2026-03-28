@@ -21,10 +21,6 @@ export class MusicResolver {
     const file = files?.file?.[0];
     const sheetMusic = files?.sheetMusic?.[0];
 
-    if (!file) {
-      throw new Error('Audio file is required');
-    }
-
     return this.musicService.createMusic(createMusicInput, file, sheetMusic);
   }
 

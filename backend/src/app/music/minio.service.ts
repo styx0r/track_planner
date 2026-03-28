@@ -118,6 +118,22 @@ export class MinioService {
     }
   }
 
+  async copyFile(sourceFileName: string, destFileName: string): Promise<{ fileName: string; url: string }> {
+    try {
+      await this.minioClient.copyObject(
+        this.bucketName,
+        destFileName,
+        `/${this.bucketName}/${sourceFileName}`,
+      );
+      const url = await this.minioClient.presignedGetObject(this.bucketName, destFileName, 24 * 60 * 60);
+      this.logger.log(`File copied: ${sourceFileName} -> ${destFileName}`);
+      return { fileName: destFileName, url };
+    } catch (error: any) {
+      this.logger.error(`Error copying file: ${error?.message}`);
+      throw new Error(`Failed to copy file: ${error?.message}`);
+    }
+  }
+
   async deleteFile(fileName: string): Promise<void> {
     try {
       await this.minioClient.removeObject(this.bucketName, fileName);

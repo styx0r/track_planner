@@ -7,10 +7,11 @@ import {
   Param,
   UseInterceptors,
   UploadedFiles,
+  UploadedFile,
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
-import { FileFieldsInterceptor, FilesInterceptor } from '@nestjs/platform-express';
+import { FileFieldsInterceptor, FilesInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import { MusicService } from './music.service';
 import { CreateMusicInput } from './music.dto';
 
@@ -36,15 +37,28 @@ export class MusicController {
     const audioFile = files?.file?.[0];
     const sheetMusicFiles = files?.sheetMusic || [];
 
-    if (!audioFile) {
-      throw new HttpException('Audio file is required', HttpStatus.BAD_REQUEST);
-    }
-
     return this.musicService.createMusic(
       createMusicInput,
       audioFile,
       sheetMusicFiles
     );
+  }
+
+  @Patch(':uid/audio')
+  @UseInterceptors(FileInterceptor('file'))
+  async replaceAudio(
+    @Param('uid') uid: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new HttpException('Audio file is required', HttpStatus.BAD_REQUEST);
+    }
+    return this.musicService.replaceAudioFile(uid, file);
+  }
+
+  @Post(':uid/duplicate')
+  async duplicate(@Param('uid') uid: string) {
+    return this.musicService.duplicateMusic(uid);
   }
 
   @Post(':uid/sheets')

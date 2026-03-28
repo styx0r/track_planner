@@ -40,7 +40,8 @@ import {
   ArrowBack,
   ArrowUpward,
   ArrowDownward,
-  OpenInNew
+  OpenInNew,
+  ContentCopy
 } from '@mui/icons-material';
 import { DataGrid, GridColDef, GridActionsCellItem } from '@mui/x-data-grid';
 import { parseBlob, type IAudioMetadata } from 'music-metadata-browser';
@@ -79,11 +80,12 @@ interface Music {
   genre: Genre;
   bpm?: number;
   metronome_offset?: number;
+  duration?: number;
   lyrics?: string;
   creation_timestamp: string;
   update_timestamp: string;
-  file_url: string;
-  file_name: string;
+  file_url?: string;
+  file_name?: string;
   sheets?: SheetMusic[];
 }
 
@@ -94,6 +96,7 @@ interface MusicTableProps {
   onPlayPause: (uid: string, fileUrl: string) => void;
   onEdit: (row: Music) => void;
   onDeleteMusic: (uid: string) => void;
+  onDuplicate: (uid: string) => void;
 }
 
 enum PresentationType {
@@ -141,8 +144,16 @@ interface CreateMusicInput {
   genre: Genre;
   bpm?: number;
   metronome_offset?: number;
+  duration?: number;
   lyrics?: string;
 }
+
+const formatDuration = (seconds?: number): string => {
+  if (!seconds) return '';
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+};
 
 interface SearchFilters {
   title?: string;
@@ -161,6 +172,7 @@ interface EditMusicMetadata {
   genre: Genre;
   bpm?: number;
   metronome_offset?: number;
+  duration?: number;
 }
 
 // --- SheetMusicManager component ---
@@ -383,7 +395,8 @@ const MusicTable = memo(function MusicTable({
   currentlyPlaying,
   onPlayPause,
   onEdit,
-  onDeleteMusic
+  onDeleteMusic,
+  onDuplicate
 }: MusicTableProps) {
   const columns = useMemo<GridColDef[]>(() => [
     {
@@ -396,6 +409,7 @@ const MusicTable = memo(function MusicTable({
           color="primary"
           onClick={() => onPlayPause(params.row.uid, params.row.file_url)}
           size="small"
+          disabled={!params.row.file_url}
         >
           {currentlyPlaying === params.row.uid ? <Pause /> : <PlayArrow />}
         </IconButton>
@@ -424,6 +438,13 @@ const MusicTable = memo(function MusicTable({
     { field: 'bpm', headerName: 'BPM', width: 80, type: 'number' },
     { field: 'metronome_offset', headerName: 'Offset (ms)', width: 100, type: 'number' },
     {
+      field: 'duration',
+      headerName: 'Duration',
+      width: 90,
+      sortable: true,
+      renderCell: (params) => params.value ? formatDuration(params.value) : ''
+    },
+    {
       field: 'sheets',
       headerName: 'Sheets',
       width: 100,
@@ -443,6 +464,12 @@ const MusicTable = memo(function MusicTable({
       headerName: 'Actions',
       width: 120,
       getActions: (params) => [
+        <GridActionsCellItem
+          key="duplicate"
+          icon={<ContentCopy />}
+          label="Duplicate"
+          onClick={() => onDuplicate(params.row.uid)}
+        />,
         <GridActionsCellItem
           key="edit"
           icon={<Edit />}
@@ -504,6 +531,7 @@ export default function MusicManagement() {
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadSheets, setUploadSheets] = useState<LocalSheet[]>([]);
+  const [editAudioFile, setEditAudioFile] = useState<File | null>(null);
 
   const closeEditDialog = useCallback(() => {
     setEditDialogOpen(false);
@@ -511,6 +539,7 @@ export default function MusicManagement() {
     setEditMetadata(null);
     setEditLyrics('');
     setEditSheets([]);
+    setEditAudioFile(null);
   }, []);
 
   // Load music data
@@ -533,6 +562,7 @@ export default function MusicManagement() {
                 genre
                 bpm
                 metronome_offset
+                duration
                 lyrics
                 creation_timestamp
                 update_timestamp
@@ -606,6 +636,10 @@ export default function MusicManagement() {
         if (!prev.bpm && typeof bpm === 'number' && !Number.isNaN(bpm)) {
           updated.bpm = Math.round(bpm);
         }
+        const dur = metadata.format.duration;
+        if (!prev.duration && typeof dur === 'number' && !Number.isNaN(dur)) {
+          updated.duration = Math.round(dur);
+        }
         return updated;
       });
     } catch (error) {
@@ -623,13 +657,10 @@ export default function MusicManagement() {
 
   // Upload music
   const handleUpload = async () => {
-    if (!selectedFile) {
-      setSnackbar({ open: true, message: 'Please select an audio file', severity: 'error' });
-      return;
-    }
-
     const formData = new FormData();
-    formData.append('file', selectedFile);
+    if (selectedFile) {
+      formData.append('file', selectedFile);
+    }
 
     // Append all pending sheet files in order
     const sorted = [...uploadSheets].sort((a, b) => a.order - b.order);
@@ -710,6 +741,7 @@ export default function MusicManagement() {
               genre: editMetadata.genre,
               bpm: editMetadata.bpm,
               metronome_offset: editMetadata.metronome_offset,
+              duration: editMetadata.duration,
               lyrics: editLyrics || undefined
             }
           }
@@ -787,6 +819,16 @@ export default function MusicManagement() {
         });
       }
 
+      // Replace audio file if a new one was selected
+      if (editAudioFile) {
+        const audioFormData = new FormData();
+        audioFormData.append('file', editAudioFile);
+        await fetch(`/api/music/${musicUid}/audio`, {
+          method: 'PATCH',
+          body: audioFormData
+        });
+      }
+
       setSnackbar({ open: true, message: 'Music updated successfully!', severity: 'success' });
       closeEditDialog();
       await loadMusic(appliedFilters);
@@ -794,6 +836,18 @@ export default function MusicManagement() {
       setSnackbar({ open: true, message: `Update failed: ${error}`, severity: 'error' });
     }
   };
+
+  // Duplicate music
+  const handleDuplicate = useCallback(async (uid: string) => {
+    try {
+      const response = await fetch(`/api/music/${uid}/duplicate`, { method: 'POST' });
+      if (!response.ok) throw new Error(await response.text());
+      setSnackbar({ open: true, message: 'Music duplicated successfully!', severity: 'success' });
+      await loadMusic(appliedFilters);
+    } catch (error) {
+      setSnackbar({ open: true, message: `Duplicate failed: ${error}`, severity: 'error' });
+    }
+  }, [appliedFilters, loadMusic]);
 
   // Delete music
   const handleDeleteMusic = useCallback(async (uid: string) => {
@@ -855,7 +909,8 @@ export default function MusicManagement() {
       presentation_type: row.presentation_type,
       genre: row.genre,
       bpm: row.bpm,
-      metronome_offset: row.metronome_offset
+      metronome_offset: row.metronome_offset,
+      duration: row.duration
     });
     setEditLyrics(row.lyrics || '');
     setEditSheets((row.sheets || []).map(toLocalSheet));
@@ -956,6 +1011,7 @@ export default function MusicManagement() {
         onPlayPause={handlePlayPause}
         onEdit={handleEditRow}
         onDeleteMusic={handleDeleteMusic}
+        onDuplicate={handleDuplicate}
       />
 
       {/* Upload FAB */}
@@ -979,9 +1035,8 @@ export default function MusicManagement() {
                 component="label"
                 fullWidth
                 startIcon={<CloudUpload />}
-                sx={{ mb: 2 }}
               >
-                {selectedFile ? selectedFile.name : 'Select Audio File'}
+                {selectedFile ? selectedFile.name : 'Select Audio File (optional)'}
                 <input
                   type="file"
                   hidden
@@ -1069,6 +1124,16 @@ export default function MusicManagement() {
                 value={uploadForm.metronome_offset || ''}
                 onChange={(e) => setUploadForm({ ...uploadForm, metronome_offset: parseInt(e.target.value) || undefined })}
                 helperText="Offset in milliseconds relative to song start"
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                fullWidth
+                label="Duration (seconds)"
+                type="number"
+                value={uploadForm.duration || ''}
+                onChange={(e) => setUploadForm({ ...uploadForm, duration: parseInt(e.target.value) || undefined })}
+                helperText={uploadForm.duration ? formatDuration(uploadForm.duration) : 'Auto-filled from audio file'}
               />
             </Grid>
             <Grid size={12}>
@@ -1179,6 +1244,52 @@ export default function MusicManagement() {
                   onChange={(e) => setEditMetadata((prev) => prev ? { ...prev, metronome_offset: parseInt(e.target.value) || undefined } : prev)}
                   helperText="Offset in milliseconds relative to song start"
                 />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  fullWidth
+                  label="Duration (seconds)"
+                  type="number"
+                  value={editMetadata.duration ?? ''}
+                  onChange={(e) => setEditMetadata((prev) => prev ? { ...prev, duration: parseInt(e.target.value) || undefined } : prev)}
+                  helperText={editMetadata.duration ? formatDuration(editMetadata.duration) : ''}
+                />
+              </Grid>
+              <Grid size={12}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Typography variant="body2" color="text.secondary" sx={{ flexShrink: 0 }}>
+                    Audio file:
+                  </Typography>
+                  <Typography variant="body2" noWrap sx={{ flexGrow: 1, color: editAudioFile ? 'text.primary' : 'text.disabled' }}>
+                    {editAudioFile ? editAudioFile.name : (selectedMusic?.file_name || 'No audio file')}
+                  </Typography>
+                  <Button
+                    component="label"
+                    size="small"
+                    variant="outlined"
+                    startIcon={<CloudUpload />}
+                    sx={{ flexShrink: 0 }}
+                  >
+                    Replace
+                    <input
+                      type="file"
+                      hidden
+                      accept="audio/*"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0] || null;
+                        setEditAudioFile(f);
+                        if (f) {
+                          parseBlob(f).then((meta) => {
+                            const dur = meta.format.duration;
+                            if (typeof dur === 'number' && !Number.isNaN(dur)) {
+                              setEditMetadata((prev) => prev ? { ...prev, duration: Math.round(dur) } : prev);
+                            }
+                          }).catch(() => {});
+                        }
+                      }}
+                    />
+                  </Button>
+                </Box>
               </Grid>
               <Grid size={12}>
                 <TextField

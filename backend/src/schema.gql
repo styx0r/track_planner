@@ -5,9 +5,6 @@
 input CreateMusicInput {
   author: String!
   bpm: Int
-
-  """Duration in seconds"""
-  duration: Int
   genre: Genre!
   lyrics: String
 
@@ -47,11 +44,8 @@ type Music {
   author: String!
   bpm: Int
   creation_timestamp: DateTime!
-
-  """Duration in seconds"""
-  duration: Int
-  file_name: String
-  file_url: String
+  file_name: String!
+  file_url: String!
   genre: Genre!
   lyrics: String
 
@@ -141,9 +135,6 @@ type SheetMusic {
 input UpdateMusicInput {
   author: String
   bpm: Float
-
-  """Duration in seconds"""
-  duration: Int
   genre: Genre
   lyrics: String
 
