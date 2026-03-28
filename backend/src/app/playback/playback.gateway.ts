@@ -4,6 +4,7 @@ import {
   SubscribeMessage,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
   ConnectedSocket,
   MessageBody,
 } from '@nestjs/websockets';
@@ -46,7 +47,7 @@ class CountInMessage {
   },
   namespace: '/playback',
 })
-export class PlaybackGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class PlaybackGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server!: Server;
 
@@ -54,6 +55,10 @@ export class PlaybackGateway implements OnGatewayConnection, OnGatewayDisconnect
   private connectedClients: Map<string, Socket> = new Map();
 
   constructor(private readonly playbackService: PlaybackService) {}
+
+  afterInit(server: Server): void {
+    this.playbackService.setBroadcastFn((event, data) => server.emit(event, data));
+  }
 
   /**
    * Handle new client connection
@@ -132,6 +137,21 @@ export class PlaybackGateway implements OnGatewayConnection, OnGatewayDisconnect
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`Pause error: ${message}`);
+      client.emit(WS_EVENTS.PLAYBACK_ERROR, { message });
+    }
+  }
+
+  /**
+   * Resume paused playback command
+   */
+  @SubscribeMessage(WS_EVENTS.RESUME)
+  async handleResume(@ConnectedSocket() client: Socket): Promise<void> {
+    try {
+      const state = await this.playbackService.resume();
+      this.broadcastState(WS_EVENTS.PLAYBACK_STARTED, state);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Resume error: ${message}`);
       client.emit(WS_EVENTS.PLAYBACK_ERROR, { message });
     }
   }

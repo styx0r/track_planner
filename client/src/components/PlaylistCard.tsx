@@ -9,6 +9,7 @@ interface PlaylistCardProps {
   playbackState: PlaybackState;
   onSelect: (playlist: Playlist) => void;
   onPlayTrack: (playlistUid: string, trackIndex: number) => void;
+  onPause: () => void;
 }
 
 export function PlaylistCard({
@@ -17,8 +18,10 @@ export function PlaylistCard({
   playbackState,
   onSelect,
   onPlayTrack,
+  onPause,
 }: PlaylistCardProps) {
-  const isPlaying = playbackState.status === PlaybackStatus.PLAYING;
+  const isPlaying = playbackState.status === PlaybackStatus.PLAYING
+    || playbackState.status === PlaybackStatus.COUNT_IN;
   const isCurrentPlaylist = playbackState.playlistUid === playlist.uid;
 
   return (
@@ -49,34 +52,44 @@ export function PlaylistCard({
       </div>
 
       <div className={styles.tracks}>
-        {playlist.tracks.slice(0, 5).map((track, index) => (
-          <div 
-            key={track.music_uid}
-            className={`
-              ${styles.track}
-              ${isCurrentPlaylist && playbackState.currentTrackIndex === index ? styles.playing : ''}
-            `}
-            onClick={(e) => {
-              e.stopPropagation();
-              onPlayTrack(playlist.uid, index);
-            }}
-          >
-            <span className={styles.trackNumber}>{index + 1}</span>
-            <div className={styles.trackInfo}>
-              <span className={styles.trackTitle}>
-                {track.music?.title || 'Unknown Track'}
-              </span>
-              <span className={styles.trackArtist}>
-                {track.music?.author || 'Unknown Artist'}
-              </span>
+        {playlist.tracks.slice(0, 5).map((track, index) => {
+          const isThisTrackPlaying = isPlaying && isCurrentPlaylist && playbackState.currentTrackIndex === index;
+          return (
+            <div
+              key={track.music_uid}
+              className={`${styles.track} ${isCurrentPlaylist && playbackState.currentTrackIndex === index ? styles.playing : ''}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (isThisTrackPlaying) {
+                  onPause();
+                } else {
+                  onPlayTrack(playlist.uid, index);
+                }
+              }}
+            >
+              <span className={styles.trackNumber}>{index + 1}</span>
+              <div className={styles.trackInfo}>
+                <span className={styles.trackTitle}>
+                  {track.music?.title || 'Unknown Track'}
+                </span>
+                <span className={styles.trackArtist}>
+                  {track.music?.author || 'Unknown Artist'}
+                </span>
+              </div>
+              <button className={styles.playBtn} title={isThisTrackPlaying ? 'Pause' : 'Play track'}>
+                {isThisTrackPlaying ? (
+                  <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                )}
+              </button>
             </div>
-            <button className={styles.playBtn} title="Play track">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            </button>
-          </div>
-        ))}
+          );
+        })}
         {playlist.tracks.length > 5 && (
           <div className={styles.more}>
             +{playlist.tracks.length - 5} more tracks

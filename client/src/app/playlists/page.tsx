@@ -43,6 +43,7 @@ export default function PlaylistsPage() {
     resync,
     play,
     pause,
+    resume,
     stop,
     next,
     previous,
@@ -206,6 +207,7 @@ export default function PlaylistsPage() {
             performanceMode={isPerformanceMode}
             onPlay={(uid, idx) => play(uid, idx, effectiveCountInBeats)}
             onPause={pause}
+            onResume={resume}
             onStop={stop}
             onNext={next}
             onPrevious={previous}
@@ -213,7 +215,10 @@ export default function PlaylistsPage() {
           />
 
           <Metronome
-            enabled={metronomeState.enabled}
+            enabled={metronomeState.enabled && (
+              playbackState.status === 'playing' ||
+              playbackState.status === 'count_in'
+            )}
             bpm={playbackState.bpm || metronomeState.bpm}
             startTime={scheduledLocalStartTime}
             countInStartTime={isPerformanceMode ? null : countInStartTime}
@@ -310,6 +315,7 @@ export default function PlaylistsPage() {
                   playbackState={playbackState}
                   onSelect={handleSelectPlaylist}
                   onPlayTrack={handlePlayTrack}
+                  onPause={pause}
                 />
               ))}
             </div>

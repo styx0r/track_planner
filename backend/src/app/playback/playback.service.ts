@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { spawn, ChildProcess } from 'child_process';
-import { PlaybackState, PlaybackStatus, MetronomeState } from './playback.dto';
+import { PlaybackState, PlaybackStatus, MetronomeState, WS_EVENTS } from './playback.dto';
 import { PlaylistService } from '../playlist/playlist.service';
 import { MusicService } from '../music/music.service';
 import { MinioService } from '../music/minio.service';
@@ -34,6 +34,17 @@ export class PlaybackService {
   private currentPlaylist: any = null;
   private tempFilePath: string | null = null;
   private playbackTimeout: NodeJS.Timeout | null = null;
+
+  // Broadcast callback set by the gateway after WebSocket server is ready
+  private broadcastFn: ((event: string, data: any) => void) | null = null;
+
+  setBroadcastFn(fn: (event: string, data: any) => void): void {
+    this.broadcastFn = fn;
+  }
+
+  private broadcast(event: string, data: any): void {
+    this.broadcastFn?.(event, data);
+  }
 
   constructor(
     private readonly playlistService: PlaylistService,
@@ -160,45 +171,48 @@ export class PlaybackService {
   /**
    * Start actual audio playback using external player
    */
-  private async startAudioPlayback(fileUrl: string, fileName: string): Promise<void> {
+  private async startAudioPlayback(fileUrl: string, fileName: string, startPositionMs: number = 0): Promise<void> {
     try {
       // Download file to temp location for playback
       const tempDir = os.tmpdir();
       this.tempFilePath = path.join(tempDir, `track_planner_${Date.now()}_${fileName}`);
-      
       await this.downloadFile(fileUrl, this.tempFilePath);
-      
-      // Try different players in order of preference
-      const players = ['mpv', 'ffplay', 'afplay']; // afplay is macOS-specific
-      let playerFound = false;
-
-      for (const player of players) {
-        try {
-          await this.tryStartPlayer(player, this.tempFilePath);
-          playerFound = true;
-          break;
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : 'Unknown error';
-          this.logger.debug(`Player ${player} not available: ${msg}`);
-        }
-      }
-
-      if (!playerFound) {
-        this.logger.warn('No audio player found. Playback will be simulated.');
-        // Simulate playback for testing
-        this.playbackStartTime = Date.now();
-      }
-
-      this.currentState.status = PlaybackStatus.PLAYING;
-      this.playbackStartTime = Date.now();
-      
-      this.logger.log(`Audio playback started for: ${fileName}`);
+      await this.startPlayerFromFile(this.tempFilePath, startPositionMs);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`Failed to start audio playback: ${message}`);
       this.currentState.status = PlaybackStatus.IDLE;
       throw error;
     }
+  }
+
+  /**
+   * Start the audio player process from a local file, optionally seeking to a position.
+   */
+  private async startPlayerFromFile(filePath: string, startPositionMs: number = 0): Promise<void> {
+    const players = ['mpv', 'ffplay', 'afplay'];
+    let playerFound = false;
+
+    for (const player of players) {
+      try {
+        await this.tryStartPlayer(player, filePath, startPositionMs);
+        playerFound = true;
+        break;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Unknown error';
+        this.logger.debug(`Player ${player} not available: ${msg}`);
+      }
+    }
+
+    if (!playerFound) {
+      this.logger.warn('No audio player found. Playback will be simulated.');
+    }
+
+    this.currentState.status = PlaybackStatus.PLAYING;
+    this.playbackStartTime = Date.now() - startPositionMs;
+    this.currentState.scheduledStartTime = Date.now() - startPositionMs;
+    this.broadcast(WS_EVENTS.PLAYBACK_STARTED, this.getState());
+    this.logger.log(`Audio playback started from position ${startPositionMs}ms`);
   }
 
   /**
@@ -245,19 +259,25 @@ export class PlaybackService {
   /**
    * Try to start a specific audio player
    */
-  private async tryStartPlayer(player: string, filePath: string): Promise<void> {
+  private async tryStartPlayer(player: string, filePath: string, startPositionMs: number = 0): Promise<void> {
     return new Promise((resolve, reject) => {
       let args: string[];
-      
+      const startSec = (startPositionMs / 1000).toFixed(3);
+
       switch (player) {
         case 'mpv':
-          args = ['--no-video', '--no-terminal', filePath];
+          args = ['--no-video', '--no-terminal'];
+          if (startPositionMs > 0) args.push(`--start=${startSec}`);
+          args.push(filePath);
           break;
         case 'ffplay':
-          args = ['-nodisp', '-autoexit', '-loglevel', 'quiet', filePath];
+          args = ['-nodisp', '-autoexit', '-loglevel', 'quiet'];
+          if (startPositionMs > 0) args.push('-ss', startSec);
+          args.push(filePath);
           break;
         case 'afplay':
           args = [filePath];
+          // afplay has no seek support; playback resumes from start
           break;
         default:
           args = [filePath];
@@ -289,6 +309,11 @@ export class PlaybackService {
    * Handle playback ended event
    */
   private async onPlaybackEnded(): Promise<void> {
+    // Ignore if we deliberately paused (process was killed by us)
+    if (this.currentState.status === PlaybackStatus.PAUSED) {
+      return;
+    }
+
     // Clean up temp file
     if (this.tempFilePath && fs.existsSync(this.tempFilePath)) {
       fs.unlinkSync(this.tempFilePath);
@@ -304,13 +329,13 @@ export class PlaybackService {
       const nextIndex = this.currentState.currentTrackIndex + 1;
       if (nextIndex < this.currentPlaylist.tracks.length) {
         this.logger.log(`Auto-advancing to track ${nextIndex}`);
-        // Small delay before next track
-        setTimeout(() => {
-          this.play(
+        setTimeout(async () => {
+          const state = await this.play(
             this.currentState.playlistUid!,
             nextIndex,
             this.metronomeState.countInBeats,
           );
+          this.broadcast(WS_EVENTS.PLAYBACK_TRACK_CHANGED, state);
         }, 500);
         return;
       }
@@ -323,32 +348,41 @@ export class PlaybackService {
   }
 
   /**
-   * Pause current playback
+   * Pause current playback — kills the player and records the position.
    */
   async pause(): Promise<PlaybackState> {
-    if (this.playerProcess) {
-      // Send SIGSTOP to pause (Unix only)
-      this.playerProcess.kill('SIGSTOP');
-      this.currentState.status = PlaybackStatus.PAUSED;
-      
-      if (this.playbackStartTime) {
+    if (this.playerProcess && this.currentState.status === PlaybackStatus.PLAYING) {
+      if (this.playbackStartTime !== null) {
         this.currentState.positionMs = Date.now() - this.playbackStartTime;
       }
+      this.currentState.status = PlaybackStatus.PAUSED;
+      this.playerProcess.kill('SIGTERM');
+      this.playerProcess = null;
+      // Keep tempFilePath so resume can reuse the downloaded file
     }
-    
     return this.getState();
   }
 
   /**
-   * Resume paused playback
+   * Resume paused playback from the recorded position.
    */
   async resume(): Promise<PlaybackState> {
-    if (this.playerProcess && this.currentState.status === PlaybackStatus.PAUSED) {
-      // Send SIGCONT to resume (Unix only)
-      this.playerProcess.kill('SIGCONT');
-      this.currentState.status = PlaybackStatus.PLAYING;
+    if (this.currentState.status !== PlaybackStatus.PAUSED) {
+      return this.getState();
     }
-    
+
+    const positionMs = this.currentState.positionMs || 0;
+
+    if (this.tempFilePath && fs.existsSync(this.tempFilePath)) {
+      await this.startPlayerFromFile(this.tempFilePath, positionMs);
+    } else if (this.currentState.currentTrackUid) {
+      // Temp file gone — re-download
+      const music = await this.musicService.getMusicById(this.currentState.currentTrackUid);
+      if (music.file_url) {
+        await this.startAudioPlayback(music.file_url, music.file_name || '', positionMs);
+      }
+    }
+
     return this.getState();
   }
 

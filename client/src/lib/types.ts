@@ -7,6 +7,7 @@ export enum PlaybackStatus {
   PLAYING = 'playing',
   PAUSED = 'paused',
   LOADING = 'loading',
+  COUNT_IN = 'count_in',
 }
 
 export interface PlaybackState {
@@ -90,6 +91,7 @@ export const WS_EVENTS = {
 
   // Server -> Client
   TIME_SYNC_RESPONSE: 'time:sync:response',
+  RESUME: 'playback:resume',
   PLAYBACK_STATE: 'playback:state',
   PLAYBACK_STARTED: 'playback:started',
   PLAYBACK_PAUSED: 'playback:paused',

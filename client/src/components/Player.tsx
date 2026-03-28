@@ -11,6 +11,7 @@ interface PlayerProps {
   performanceMode?: boolean; // Performance mode - simplified controls
   onPlay: (playlistUid: string, trackIndex?: number) => void;
   onPause: () => void;
+  onResume: () => void;
   onStop: () => void;
   onNext: () => void;
   onPrevious: () => void;
@@ -25,22 +26,23 @@ export function Player({
   performanceMode = false,
   onPlay,
   onPause,
+  onResume,
   onStop,
   onNext,
   onPrevious,
   onCountInChange,
 }: PlayerProps) {
-  const isPlaying = playbackState.status === PlaybackStatus.PLAYING;
+  const isActive = playbackState.status === PlaybackStatus.PLAYING
+    || playbackState.status === PlaybackStatus.COUNT_IN;
   const isLoading = playbackState.status === PlaybackStatus.LOADING;
   const isPaused = playbackState.status === PlaybackStatus.PAUSED;
   const hasActiveTrack = playbackState.currentTrackTitle !== undefined;
 
   const handlePlayPause = () => {
-    if (isPlaying) {
+    if (isActive) {
       onPause();
-    } else if (isPaused && playbackState.playlistUid) {
-      // Resume - this would need a resume command, for now just replay
-      onPlay(playbackState.playlistUid, playbackState.currentTrackIndex || 0);
+    } else if (isPaused) {
+      onResume();
     } else if (activePlaylist) {
       onPlay(activePlaylist.uid, 0);
     }
@@ -51,7 +53,7 @@ export function Player({
       {/* Now Playing Info */}
       <div className={styles.nowPlaying}>
         <div className={styles.albumArt}>
-          {isPlaying && (
+          {isActive && (
             <div className={styles.equalizer}>
               <span></span>
               <span></span>
@@ -59,7 +61,7 @@ export function Player({
               <span></span>
             </div>
           )}
-          {!isPlaying && (
+          {!isActive && (
             <svg viewBox="0 0 24 24" fill="currentColor" className={styles.musicIcon}>
               <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
             </svg>
@@ -112,14 +114,14 @@ export function Player({
         </button>
 
         <button 
-          className={`${styles.playBtn} ${isPlaying ? styles.playing : ''}`}
+          className={`${styles.playBtn} ${isActive ? styles.playing : ''}`}
           onClick={handlePlayPause}
           disabled={!isConnected || isLoading || (!activePlaylist && !hasActiveTrack)}
-          title={isPlaying ? 'Pause' : 'Play'}
+          title={isActive ? 'Pause' : 'Play'}
         >
           {isLoading ? (
             <div className={styles.spinner} />
-          ) : isPlaying ? (
+          ) : isActive ? (
             <svg viewBox="0 0 24 24" fill="currentColor">
               <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
             </svg>
@@ -157,15 +159,17 @@ export function Player({
       <div className={styles.status}>
         <span className={`${styles.statusDot} ${isConnected ? styles.connected : ''}`} />
         <span className={styles.statusText}>
-          {!isConnected 
-            ? 'Disconnected' 
-            : isLoading 
-              ? 'Loading...' 
-              : isPlaying 
-                ? 'Playing on Server' 
-                : isPaused 
-                  ? 'Paused' 
-                  : 'Ready'}
+          {!isConnected
+            ? 'Disconnected'
+            : isLoading
+              ? 'Loading...'
+              : playbackState.status === PlaybackStatus.COUNT_IN
+                ? 'Count-in...'
+                : isActive
+                  ? 'Playing on Server'
+                  : isPaused
+                    ? 'Paused'
+                    : 'Ready'}
         </span>
       </div>
     </div>

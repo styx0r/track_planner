@@ -106,6 +106,7 @@ export const WS_EVENTS = {
   TIME_SYNC: 'time:sync',
   PLAY: 'playback:play',
   PAUSE: 'playback:pause',
+  RESUME: 'playback:resume',
   STOP: 'playback:stop',
   NEXT: 'playback:next',
   PREVIOUS: 'playback:previous',
