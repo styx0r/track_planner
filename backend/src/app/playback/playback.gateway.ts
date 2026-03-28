@@ -40,6 +40,10 @@ class CountInMessage {
   beats!: number;
 }
 
+class SeekMessage {
+  positionMs!: number;
+}
+
 @WebSocketGateway({
   cors: {
     origin: '*', // In production, restrict to specific origins
@@ -244,6 +248,24 @@ export class PlaybackGateway implements OnGatewayInit, OnGatewayConnection, OnGa
   ): void {
     const state = this.playbackService.setCountInBeats(data.beats);
     this.broadcastState(WS_EVENTS.METRONOME_STATE, state);
+  }
+
+  /**
+   * Seek to position in current track
+   */
+  @SubscribeMessage(WS_EVENTS.SEEK)
+  async handleSeek(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: SeekMessage,
+  ): Promise<void> {
+    try {
+      const state = await this.playbackService.seek(data.positionMs);
+      this.broadcastState(WS_EVENTS.PLAYBACK_STARTED, state);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Seek error: ${message}`);
+      client.emit(WS_EVENTS.PLAYBACK_ERROR, { message });
+    }
   }
 
   /**

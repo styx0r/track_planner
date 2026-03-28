@@ -40,6 +40,7 @@ interface UsePlaybackReturn {
   stop: () => void;
   next: () => void;
   previous: () => void;
+  seek: (positionMs: number) => void;
   toggleMetronome: (enabled?: boolean) => void;
   setMetronomeBpm: (bpm: number) => void;
   setCountIn: (beats: number) => void;
@@ -237,6 +238,11 @@ export function usePlayback(): UsePlaybackReturn {
     socketRef.current.emit(WS_EVENTS.METRONOME_SET_BPM, { bpm });
   }, []);
 
+  const seek = useCallback((positionMs: number) => {
+    if (!socketRef.current?.connected) return;
+    socketRef.current.emit(WS_EVENTS.SEEK, { positionMs });
+  }, []);
+
   const setCountIn = useCallback((beats: number) => {
     if (!socketRef.current?.connected) return;
     socketRef.current.emit('metronome:setCountIn', { beats });
@@ -268,6 +274,7 @@ export function usePlayback(): UsePlaybackReturn {
     play,
     pause,
     resume,
+    seek,
     stop,
     next,
     previous,

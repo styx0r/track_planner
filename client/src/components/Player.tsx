@@ -1,6 +1,7 @@
 'use client';
 
 import { PlaybackState, PlaybackStatus, Playlist } from '../lib/types';
+import { WaveformProgressBar } from './WaveformProgressBar';
 import styles from './Player.module.css';
 
 interface PlayerProps {
@@ -8,6 +9,7 @@ interface PlayerProps {
   activePlaylist: Playlist | null;
   isConnected: boolean;
   countInBeats: number;
+  scheduledLocalStartTime: number | null;
   performanceMode?: boolean; // Performance mode - simplified controls
   onPlay: (playlistUid: string, trackIndex?: number) => void;
   onPause: () => void;
@@ -16,6 +18,7 @@ interface PlayerProps {
   onNext: () => void;
   onPrevious: () => void;
   onCountInChange: (beats: number) => void;
+  onSeek?: (positionMs: number) => void;
 }
 
 export function Player({
@@ -23,6 +26,7 @@ export function Player({
   activePlaylist,
   isConnected,
   countInBeats,
+  scheduledLocalStartTime,
   performanceMode = false,
   onPlay,
   onPause,
@@ -31,6 +35,7 @@ export function Player({
   onNext,
   onPrevious,
   onCountInChange,
+  onSeek,
 }: PlayerProps) {
   const isActive = playbackState.status === PlaybackStatus.PLAYING
     || playbackState.status === PlaybackStatus.COUNT_IN;
@@ -79,6 +84,17 @@ export function Player({
           )}
         </div>
       </div>
+
+      {playbackState.durationMs && (
+        <WaveformProgressBar
+          audioUrl={playbackState.audioUrl ?? null}
+          durationMs={playbackState.durationMs}
+          scheduledLocalStartTime={scheduledLocalStartTime}
+          positionMs={playbackState.positionMs}
+          isPlaying={isActive}
+          onSeek={onSeek}
+        />
+      )}
 
       {/* Count-In Setting - only in rehearsal mode */}
       {!performanceMode && (

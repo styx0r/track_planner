@@ -25,6 +25,7 @@ export interface PlaybackState {
   countInStartTime?: number; // When the count-in metronome starts (before song)
   countInBeats?: number; // Number of beats in the count-in
   sheets?: SheetMusicItem[]; // Sheet music files for current track
+  audioUrl?: string; // Direct URL to the audio file (for waveform generation)
 }
 
 export interface MetronomeState {

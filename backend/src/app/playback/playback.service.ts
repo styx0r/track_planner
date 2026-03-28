@@ -139,6 +139,8 @@ export class PlaybackService {
       countInStartTime: effectiveCountInBeats > 0 ? countInStartTime : undefined,
       countInBeats: effectiveCountInBeats > 0 ? effectiveCountInBeats : undefined,
       sheets: (music as any).sheets || [],
+      audioUrl: music.file_url || undefined,
+      durationMs: music.duration ? music.duration * 1000 : undefined,
     };
 
     // Update metronome state
@@ -284,23 +286,27 @@ export class PlaybackService {
       }
 
       const executable = this.getPlayerExecutable(player);
-      this.playerProcess = spawn(executable, args, {
+      const proc = spawn(executable, args, {
         detached: false,
         stdio: 'ignore',
       });
+      this.playerProcess = proc;
 
-      this.playerProcess.on('error', (error) => {
+      proc.on('error', (error) => {
         reject(error);
       });
 
-      this.playerProcess.on('spawn', () => {
+      proc.on('spawn', () => {
         this.logger.log(`Started audio playback with ${executable}`);
         resolve();
       });
 
-      this.playerProcess.on('exit', (code) => {
+      proc.on('exit', (code) => {
         this.logger.log(`Player ${player} exited with code ${code}`);
-        this.onPlaybackEnded();
+        // Only handle if this is still the active process — ignore exits from killed processes
+        if (this.playerProcess === proc) {
+          this.onPlaybackEnded();
+        }
       });
     });
   }
@@ -309,7 +315,7 @@ export class PlaybackService {
    * Handle playback ended event
    */
   private async onPlaybackEnded(): Promise<void> {
-    // Ignore if we deliberately paused (process was killed by us)
+    // Ignore if we deliberately paused
     if (this.currentState.status === PlaybackStatus.PAUSED) {
       return;
     }
@@ -397,6 +403,43 @@ export class PlaybackService {
     };
     this.playbackStartTime = null;
     this.currentPlaylist = null;
+
+    return this.getState();
+  }
+
+  /**
+   * Seek to a position in the current track
+   */
+  async seek(positionMs: number): Promise<PlaybackState> {
+    if (!this.currentState.currentTrackUid) return this.getState();
+
+    const clampedMs = Math.max(0, positionMs);
+
+    if (this.currentState.status === PlaybackStatus.PAUSED) {
+      // When paused, just update the stored position
+      this.currentState.positionMs = clampedMs;
+      return this.getState();
+    }
+
+    if (this.currentState.status !== PlaybackStatus.PLAYING) {
+      return this.getState();
+    }
+
+    // Null the process reference before killing so the exit event is ignored
+    const proc = this.playerProcess;
+    this.playerProcess = null;
+    if (proc) proc.kill('SIGTERM');
+
+    this.currentState.positionMs = clampedMs;
+
+    if (this.tempFilePath && fs.existsSync(this.tempFilePath)) {
+      await this.startPlayerFromFile(this.tempFilePath, clampedMs);
+    } else {
+      const music = await this.musicService.getMusicById(this.currentState.currentTrackUid);
+      if (music.file_url) {
+        await this.startAudioPlayback(music.file_url, music.file_name || '', clampedMs);
+      }
+    }
 
     return this.getState();
   }

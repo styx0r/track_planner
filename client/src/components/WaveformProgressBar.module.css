@@ -1,0 +1,54 @@
+.wrapper {
+  padding: 12px 0 4px;
+}
+
+.waveform {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 56px;
+}
+
+.waveform.seekable {
+  cursor: pointer;
+}
+
+.waveform.seekable:hover .bar {
+  opacity: 0.85;
+}
+
+.bar {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 2px;
+  height: max(2px, calc(var(--amp) * 100%));
+  transition: background 0.1s ease;
+}
+
+.bar.active {
+  background: linear-gradient(to top, #6366f1, #a855f7);
+}
+
+/* Shimmer animation while waveform is loading */
+.loading .bar {
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+.loading .bar:nth-child(3n) { animation-delay: 0.1s; }
+.loading .bar:nth-child(3n+1) { animation-delay: 0.25s; }
+.loading .bar:nth-child(3n+2) { animation-delay: 0.4s; }
+
+@keyframes shimmer {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.6; }
+}
+
+.times {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 11px;
+  color: #64748b;
+  letter-spacing: 0.5px;
+}

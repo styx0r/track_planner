@@ -56,6 +56,9 @@ export class PlaybackState {
 
   @Field(() => [SheetMusic], { nullable: true })
   sheets?: SheetMusic[]; // Sheet music files for current track
+
+  @Field({ nullable: true })
+  audioUrl?: string; // Direct URL to the audio file (for waveform generation)
 }
 
 /**

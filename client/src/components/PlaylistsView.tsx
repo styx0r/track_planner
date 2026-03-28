@@ -44,6 +44,7 @@ export function PlaylistsView({ initialMode }: PlaylistsViewProps) {
     play,
     pause,
     resume,
+    seek,
     stop,
     next,
     previous,
@@ -170,7 +171,9 @@ export function PlaylistsView({ initialMode }: PlaylistsViewProps) {
             activePlaylist={selectedPlaylist}
             isConnected={isConnected}
             countInBeats={countInBeats}
+            scheduledLocalStartTime={scheduledLocalStartTime}
             performanceMode={isPerformanceMode}
+            onSeek={seek}
             onPlay={(uid, idx) => play(uid, idx, effectiveCountInBeats)}
             onPause={pause}
             onResume={resume}
