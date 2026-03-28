@@ -320,31 +320,11 @@ export class PlaybackService {
       this.tempFilePath = null;
     }
 
-    // Auto-advance to next track
-    if (
-      this.currentState.status === PlaybackStatus.PLAYING &&
-      this.currentPlaylist &&
-      this.currentState.currentTrackIndex !== undefined
-    ) {
-      const nextIndex = this.currentState.currentTrackIndex + 1;
-      if (nextIndex < this.currentPlaylist.tracks.length) {
-        this.logger.log(`Auto-advancing to track ${nextIndex}`);
-        setTimeout(async () => {
-          const state = await this.play(
-            this.currentState.playlistUid!,
-            nextIndex,
-            this.metronomeState.countInBeats,
-          );
-          this.broadcast(WS_EVENTS.PLAYBACK_TRACK_CHANGED, state);
-        }, 500);
-        return;
-      }
-    }
-
-    // Playlist finished or stopped
+    // Track finished — go back to idle
     this.currentState.status = PlaybackStatus.IDLE;
     this.playerProcess = null;
     this.playbackStartTime = null;
+    this.broadcast(WS_EVENTS.PLAYBACK_STOPPED, this.getState());
   }
 
   /**
