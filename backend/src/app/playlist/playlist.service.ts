@@ -1,12 +1,16 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database.service';
 import { MinioService } from '../music/minio.service';
+import { ModerationService } from '../moderation/moderation.service';
 import {
   CreatePlaylistInput,
   UpdatePlaylistInput,
   Playlist,
-  PlaylistTrack,
+  PlaylistItem,
+  PlaylistItemType,
+  PlaylistItemInput,
   PlaylistTrackSummary,
+  ModerationTextSummary,
 } from './playlist.dto';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -19,6 +23,7 @@ export class PlaylistService {
   constructor(
     private readonly databaseService: DatabaseService,
     private readonly minioService: MinioService,
+    private readonly moderationService: ModerationService,
   ) {}
 
   async createPlaylist(createPlaylistInput: CreatePlaylistInput): Promise<Playlist> {
@@ -29,7 +34,7 @@ export class PlaylistService {
       uid: uuidv4(),
       name: createPlaylistInput.name,
       description: createPlaylistInput.description,
-      tracks: this.normalizeTracks(createPlaylistInput.tracks),
+      items: this.normalizeItems(createPlaylistInput.items),
       creation_timestamp: new Date(),
       update_timestamp: new Date(),
     };
@@ -57,8 +62,8 @@ export class PlaylistService {
       updateData.description = updatePlaylistInput.description;
     }
 
-    if (updatePlaylistInput.tracks !== undefined) {
-      updateData.tracks = this.normalizeTracks(updatePlaylistInput.tracks);
+    if (updatePlaylistInput.items !== undefined) {
+      updateData.items = this.normalizeItems(updatePlaylistInput.items);
     }
 
     await collection.update(existing._key, updateData);
@@ -98,10 +103,7 @@ export class PlaylistService {
     const db = this.databaseService.getDatabase();
     const cursor = await db.query(
       `FOR doc IN @@collection FILTER doc.uid == @uid RETURN doc`,
-      {
-        '@collection': this.collectionName,
-        uid,
-      },
+      { '@collection': this.collectionName, uid },
     );
 
     const documents = await cursor.all();
@@ -112,33 +114,99 @@ export class PlaylistService {
     return documents[0];
   }
 
-  private normalizeTracks(tracks?: { music_uid: string; order: number }[]) {
-    if (!tracks || tracks.length === 0) {
-      return [];
+  private normalizeItems(items?: PlaylistItemInput[]): any[] {
+    if (!items || items.length === 0) return [];
+
+    // Deduplicate TRACK items by music_uid; allow repeated MODERATION_TEXT items
+    const seenTracks = new Set<string>();
+    const unique: PlaylistItemInput[] = [];
+    for (const item of items) {
+      if (item.type === PlaylistItemType.TRACK) {
+        if (!item.music_uid) continue;
+        if (seenTracks.has(item.music_uid)) continue;
+        seenTracks.add(item.music_uid);
+      }
+      unique.push(item);
     }
 
-    const uniqueMap = new Map<string, number>();
-    tracks.forEach((track) => {
-      if (!track.music_uid) return;
-      uniqueMap.set(track.music_uid, track.order);
-    });
-
-    return Array.from(uniqueMap.entries())
-      .map(([music_uid, order]) => ({ music_uid, order }))
+    return unique
       .sort((a, b) => a.order - b.order)
-      .map((track, index) => ({ ...track, order: index }));
+      .map((item, index) => ({
+        type: item.type,
+        order: index,
+        performer: item.performer || undefined,
+        music_uid: item.type === PlaylistItemType.TRACK ? item.music_uid : undefined,
+        metronome_enabled_override:
+          item.type === PlaylistItemType.TRACK ? item.metronome_enabled_override : undefined,
+        moderation_text_uid:
+          item.type === PlaylistItemType.MODERATION_TEXT ? item.moderation_text_uid : undefined,
+      }));
   }
 
   private async hydratePlaylist(doc: any): Promise<Playlist> {
-    const tracks = Array.isArray(doc.tracks) ? doc.tracks : [];
-    const musicSummaries = await this.fetchMusicSummaries(tracks.map((track) => track.music_uid));
-    const playlistTracks: PlaylistTrack[] = tracks
-      .sort((a, b) => a.order - b.order)
-      .map((track) => ({
-        music_uid: track.music_uid,
-        order: track.order,
-        music: musicSummaries[track.music_uid],
-      }));
+    let rawItems: any[] = [];
+
+    if (Array.isArray(doc.items) && doc.items.length > 0) {
+      rawItems = doc.items;
+    } else {
+      // Legacy migration: old docs have separate tracks + moderation_text_uids
+      const tracks = Array.isArray(doc.tracks) ? doc.tracks : [];
+      const modUids: string[] = Array.isArray(doc.moderation_text_uids)
+        ? doc.moderation_text_uids
+        : [];
+      rawItems = [
+        ...tracks.map((t: any) => ({
+          type: PlaylistItemType.TRACK,
+          order: t.order ?? 0,
+          performer: t.performer_override,
+          music_uid: t.music_uid,
+          metronome_enabled_override: t.metronome_enabled_override,
+        })),
+        ...modUids.map((uid: string, i: number) => ({
+          type: PlaylistItemType.MODERATION_TEXT,
+          order: tracks.length + i,
+          moderation_text_uid: uid,
+        })),
+      ];
+    }
+
+    const sorted = [...rawItems].sort((a, b) => a.order - b.order);
+
+    const trackUids = sorted
+      .filter((i) => i.type === PlaylistItemType.TRACK && i.music_uid)
+      .map((i) => i.music_uid);
+    const modUids = sorted
+      .filter((i) => i.type === PlaylistItemType.MODERATION_TEXT && i.moderation_text_uid)
+      .map((i) => i.moderation_text_uid);
+
+    const [musicSummaries, moderationSummaries] = await Promise.all([
+      this.fetchMusicSummaries(trackUids),
+      this.fetchModerationSummaries(modUids),
+    ]);
+
+    const items: PlaylistItem[] = sorted.map((item) => {
+      const coerceBool = (v: any): boolean | undefined =>
+        v == null ? undefined : v === true || v === 'true';
+
+      if (item.type === PlaylistItemType.TRACK) {
+        return {
+          type: PlaylistItemType.TRACK,
+          order: item.order,
+          performer: item.performer || undefined,
+          music_uid: item.music_uid,
+          metronome_enabled_override: coerceBool(item.metronome_enabled_override),
+          music: musicSummaries[item.music_uid],
+        };
+      } else {
+        return {
+          type: PlaylistItemType.MODERATION_TEXT,
+          order: item.order,
+          performer: item.performer || undefined,
+          moderation_text_uid: item.moderation_text_uid,
+          moderation_text: moderationSummaries[item.moderation_text_uid],
+        };
+      }
+    });
 
     return {
       uid: doc.uid,
@@ -146,14 +214,12 @@ export class PlaylistService {
       description: doc.description,
       creation_timestamp: new Date(doc.creation_timestamp),
       update_timestamp: new Date(doc.update_timestamp),
-      tracks: playlistTracks,
+      items,
     };
   }
 
   private async fetchMusicSummaries(uids: string[]): Promise<Record<string, PlaylistTrackSummary>> {
-    if (!uids.length) {
-      return {};
-    }
+    if (!uids.length) return {};
 
     const db = this.databaseService.getDatabase();
     const cursor = await db.query(
@@ -164,46 +230,51 @@ export class PlaylistService {
             uid: doc.uid,
             title: doc.title,
             author: doc.author,
+            performer: doc.performer,
+            bpm: doc.bpm,
+            time_signature: doc.time_signature,
+            metronome_default_enabled: doc.metronome_default_enabled,
             sheets: doc.sheets,
             sheet_music_name: doc.sheet_music_name
           }
       `,
-      {
-        '@collection': this.musicCollectionName,
-        uids,
-      },
+      { '@collection': this.musicCollectionName, uids },
     );
 
     const documents = await cursor.all();
-
-    // Refresh sheet music URLs
     const result: Record<string, PlaylistTrackSummary> = {};
+
     for (const item of documents) {
+      const coerceBool = (v: any): boolean | undefined =>
+        v == null ? undefined : v === true || v === 'true';
+
       const summary: PlaylistTrackSummary = {
         uid: item.uid,
         title: item.title,
         author: item.author,
+        performer: item.performer,
+        bpm: item.bpm,
+        time_signature: item.time_signature,
+        metronome_default_enabled: coerceBool(item.metronome_default_enabled),
         sheets: [],
       };
 
       if (item.sheets && item.sheets.length > 0) {
-        // New multi-sheet format
         summary.sheets = await Promise.all(
           item.sheets.map(async (sheet: any) => {
             try {
               const url = await this.minioService.getFileUrl(sheet.file_name);
-              const result: any = { ...sheet, url };
+              const r: any = { ...sheet, url };
               if (sheet.thumbnail_name) {
-                result.thumbnail_url = await this.minioService.getFileUrl(sheet.thumbnail_name);
+                r.thumbnail_url = await this.minioService.getFileUrl(sheet.thumbnail_name);
               }
-              return result;
+              return r;
             } catch {
               return sheet;
             }
-          })
+          }),
         );
       } else if (item.sheet_music_name) {
-        // Backward compat: old single-sheet format
         try {
           const url = await this.minioService.getFileUrl(item.sheet_music_name);
           summary.sheets = [{
@@ -214,17 +285,27 @@ export class PlaylistService {
             order: 0,
             mime_type: 'application/pdf',
           }];
-        } catch (e) {
+        } catch {
           this.logger.warn(`Could not refresh sheet music URL for: ${item.sheet_music_name}`);
         }
       }
 
       result[item.uid] = summary;
     }
-    
+
+    return result;
+  }
+
+  private async fetchModerationSummaries(
+    uids: string[],
+  ): Promise<Record<string, ModerationTextSummary>> {
+    if (!uids.length) return {};
+
+    const texts = await this.moderationService.getTextsByUids(uids);
+    const result: Record<string, ModerationTextSummary> = {};
+    for (const t of texts) {
+      result[t.uid] = { uid: t.uid, text: t.text, author: t.author, category: t.category };
+    }
     return result;
   }
 }
-
-
-

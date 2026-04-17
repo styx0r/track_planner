@@ -15,24 +15,27 @@ interface MetronomeProps {
   countInStartTime: number | null; // Local start time for count-in
   countInBeats: number;
   metronomeOffset: number; // Offset in ms (positive = metronome starts later)
+  timeSignature?: string; // e.g. "4/4", "3/4", "6/8"
   performanceMode?: boolean; // Performance mode - visual only, no controls
   onToggle: (enabled: boolean) => void;
   onBpmChange: (bpm: number) => void;
   onOffsetChange: (offsetMs: number) => void;
 }
 
-export function Metronome({ 
-  enabled, 
-  bpm, 
-  startTime, 
+export function Metronome({
+  enabled,
+  bpm,
+  startTime,
   countInStartTime,
   countInBeats,
   metronomeOffset,
+  timeSignature = '4/4',
   performanceMode = false,
-  onToggle, 
+  onToggle,
   onBpmChange,
   onOffsetChange,
 }: MetronomeProps) {
+  const beatsPerMeasure = parseInt(timeSignature.split('/')[0], 10) || 4;
   const [currentBeat, setCurrentBeat] = useState(0);
   const [isFlashing, setIsFlashing] = useState(false);
   const [isCountingIn, setIsCountingIn] = useState(false);
@@ -114,7 +117,7 @@ export function Metronome({
           setIsFlashing(true);
           
           // Play count-in sound (only in rehearsal mode)
-          playBeatSound(countBeat % 4 === 0, true, countBeat % 4);
+          playBeatSound(countBeat % beatsPerMeasure === 0, true, countBeat % beatsPerMeasure);
           
           setTimeout(() => setIsFlashing(false), 50);
         }
@@ -142,7 +145,7 @@ export function Metronome({
 
     // Calculate current beat
     const beat = Math.floor(elapsed / beatInterval);
-    const beatInMeasure = beat % 4; // Assuming 4/4 time
+    const beatInMeasure = beat % beatsPerMeasure;
 
     if (beat !== lastBeatRef.current) {
       lastBeatRef.current = beat;
@@ -238,7 +241,7 @@ export function Metronome({
       )}
 
       <div className={`${styles.visualizer} ${isCountingIn ? styles.hidden : ''}`}>
-        {[0, 1, 2, 3].map((beat) => (
+        {Array.from({ length: beatsPerMeasure }, (_, beat) => (
           <div
             key={beat}
             className={`

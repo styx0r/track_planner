@@ -77,7 +77,9 @@ export function Player({
             {hasActiveTrack ? playbackState.currentTrackTitle : 'No track playing'}
           </span>
           <span className={styles.trackArtist}>
-            {hasActiveTrack ? playbackState.currentTrackAuthor : 'Select a playlist to start'}
+            {hasActiveTrack
+              ? (playbackState.currentTrackPerformer || playbackState.currentTrackAuthor)
+              : 'Select a playlist to start'}
           </span>
           {playbackState.bpm && (
             <span className={styles.bpmBadge}>{playbackState.bpm} BPM</span>

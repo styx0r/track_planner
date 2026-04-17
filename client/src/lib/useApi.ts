@@ -33,6 +33,32 @@ async function graphqlRequest<T>(query: string, variables?: Record<string, unkno
   return result.data;
 }
 
+const PLAYLIST_ITEMS_FRAGMENT = `
+  items {
+    type
+    order
+    performer
+    music_uid
+    metronome_enabled_override
+    music {
+      uid
+      title
+      author
+      sheets {
+        uid
+        file_name
+        original_name
+        url
+        order
+        mime_type
+        thumbnail_url
+      }
+    }
+    moderation_text_uid
+    moderation_text { uid text author category }
+  }
+`;
+
 const PLAYLISTS_QUERY = `
   query GetPlaylists {
     playlists {
@@ -41,24 +67,7 @@ const PLAYLISTS_QUERY = `
       description
       creation_timestamp
       update_timestamp
-      tracks {
-        music_uid
-        order
-        music {
-          uid
-          title
-          author
-          sheets {
-            uid
-            file_name
-            original_name
-            url
-            order
-            mime_type
-            thumbnail_url
-          }
-        }
-      }
+      ${PLAYLIST_ITEMS_FRAGMENT}
     }
   }
 `;
@@ -71,24 +80,7 @@ const PLAYLIST_QUERY = `
       description
       creation_timestamp
       update_timestamp
-      tracks {
-        music_uid
-        order
-        music {
-          uid
-          title
-          author
-          sheets {
-            uid
-            file_name
-            original_name
-            url
-            order
-            mime_type
-            thumbnail_url
-          }
-        }
-      }
+      ${PLAYLIST_ITEMS_FRAGMENT}
     }
   }
 `;

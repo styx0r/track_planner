@@ -2,6 +2,17 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+input CreateModerationCategoryInput {
+  name: String!
+}
+
+input CreateModerationTextInput {
+  author: String!
+  category: String!
+  creation_date: DateTime!
+  text: String!
+}
+
 input CreateMusicInput {
   author: String!
   bpm: Int
@@ -10,19 +21,22 @@ input CreateMusicInput {
   duration: Int
   genre: Genre!
   lyrics: String
+  metronome_default_enabled: Boolean
 
   """Metronome offset in milliseconds relative to song start"""
   metronome_offset: Int
+  performer: String
   presentation_type: PresentationType!
   subtitle: String
+  time_signature: String
   title: String!
   version: String
 }
 
 input CreatePlaylistInput {
   description: String
+  items: [PlaylistItemInput!]! = []
   name: String!
-  tracks: [PlaylistTrackInput!]! = []
 }
 
 """
@@ -43,6 +57,33 @@ enum Genre {
   ROCK
 }
 
+type ModerationCategory {
+  is_builtin: Boolean!
+  name: String!
+  order: Float!
+  uid: ID!
+}
+
+type ModerationText {
+  author: String!
+  category: String!
+  creation_date: DateTime!
+  text: String!
+  uid: ID!
+}
+
+input ModerationTextFilterInput {
+  author: String
+  category: String
+}
+
+type ModerationTextSummary {
+  author: String!
+  category: String!
+  text: String!
+  uid: ID!
+}
+
 type Music {
   author: String!
   bpm: Int
@@ -54,12 +95,15 @@ type Music {
   file_url: String
   genre: Genre!
   lyrics: String
+  metronome_default_enabled: Boolean
 
   """Metronome offset in milliseconds relative to song start"""
   metronome_offset: Int
+  performer: String
   presentation_type: PresentationType!
   sheets: [SheetMusic!]
   subtitle: String
+  time_signature: String
   title: String!
   uid: ID!
   update_timestamp: DateTime!
@@ -74,11 +118,17 @@ input MusicSearchInput {
 }
 
 type Mutation {
+  createModerationCategory(input: CreateModerationCategoryInput!): ModerationCategory!
+  createModerationText(input: CreateModerationTextInput!): ModerationText!
   createMusic(createMusicInput: CreateMusicInput!): Music!
   createPlaylist(createPlaylistInput: CreatePlaylistInput!): Playlist!
+  deleteModerationCategory(uid: ID!): Boolean!
+  deleteModerationText(uid: ID!): Boolean!
   deleteMusic(uid: String!): Boolean!
   deletePlaylist(uid: String!): Boolean!
+  duplicateModerationText(uid: ID!): ModerationText!
   switch: Int!
+  updateModerationText(input: UpdateModerationTextInput!): ModerationText!
   updateMusic(updateMusicInput: UpdateMusicInput!): Music!
   updatePlaylist(updatePlaylistInput: UpdatePlaylistInput!): Playlist!
 }
@@ -86,35 +136,52 @@ type Mutation {
 type Playlist {
   creation_timestamp: DateTime!
   description: String
+  items: [PlaylistItem!]!
   name: String!
-  tracks: [PlaylistTrack!]!
   uid: ID!
   update_timestamp: DateTime!
 }
 
-type PlaylistTrack {
+type PlaylistItem {
+  metronome_enabled_override: Boolean
+  moderation_text: ModerationTextSummary
+  moderation_text_uid: String
   music: PlaylistTrackSummary
-  music_uid: String!
+  music_uid: String
   order: Int!
+  performer: String
+  type: PlaylistItemType!
 }
 
-input PlaylistTrackInput {
-  music_uid: String!
+input PlaylistItemInput {
+  metronome_enabled_override: Boolean
+  moderation_text_uid: String
+  music_uid: String
   order: Int!
+  performer: String
+  type: PlaylistItemType!
+}
+
+enum PlaylistItemType {
+  MODERATION_TEXT
+  TRACK
 }
 
 type PlaylistTrackSummary {
   author: String!
+  bpm: Int
+  metronome_default_enabled: Boolean
+  performer: String
   sheets: [SheetMusic!]
+  time_signature: String
   title: String!
   uid: ID!
 }
 
 enum PresentationType {
-  ACOUSTIC
-  LIVE
-  REMIX
-  STUDIO
+  A_CAPELLA
+  LIVE_PIANO
+  PLAYBACK
 }
 
 type Query {
@@ -122,6 +189,9 @@ type Query {
   getLightState: Int!
   getMusicById(uid: String!): Music!
   hello: String!
+  moderationCategories: [ModerationCategory!]!
+  moderationText(uid: ID!): ModerationText!
+  moderationTexts(filter: ModerationTextFilterInput): [ModerationText!]!
   playlist(uid: String!): Playlist!
   playlists: [Playlist!]!
   searchMusic(searchInput: MusicSearchInput): [Music!]!
@@ -138,6 +208,14 @@ type SheetMusic {
   url: String!
 }
 
+input UpdateModerationTextInput {
+  author: String
+  category: String
+  creation_date: DateTime
+  text: String
+  uid: ID!
+}
+
 input UpdateMusicInput {
   author: String
   bpm: Float
@@ -146,11 +224,14 @@ input UpdateMusicInput {
   duration: Int
   genre: Genre
   lyrics: String
+  metronome_default_enabled: Boolean
 
   """Metronome offset in milliseconds relative to song start"""
   metronome_offset: Int
+  performer: String
   presentation_type: PresentationType
   subtitle: String
+  time_signature: String
   title: String
   uid: ID!
   version: String
@@ -158,7 +239,7 @@ input UpdateMusicInput {
 
 input UpdatePlaylistInput {
   description: String
+  items: [PlaylistItemInput!]
   name: String
-  tracks: [PlaylistTrackInput!]
   uid: ID!
 }

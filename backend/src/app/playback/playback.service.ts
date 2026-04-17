@@ -94,24 +94,34 @@ export class PlaybackService {
 
     // Fetch playlist
     const playlist = await this.playlistService.getPlaylist(playlistUid);
-    if (!playlist || playlist.tracks.length === 0) {
+    const trackItems = (playlist?.items ?? []).filter((i: any) => i.type === 'TRACK');
+    if (!playlist || trackItems.length === 0) {
       throw new NotFoundException('Playlist not found or empty');
     }
 
     this.currentPlaylist = playlist;
 
-    if (trackIndex >= playlist.tracks.length) {
+    if (trackIndex >= trackItems.length) {
       trackIndex = 0;
     }
 
-    const track = playlist.tracks[trackIndex];
+    const track = trackItems[trackIndex];
     const music = await this.musicService.getMusicById(track.music_uid);
 
     // Use provided countInBeats or default
     const effectiveCountInBeats = countInBeats ?? this.defaultCountInBeats;
-    
+
     // Get BPM from music or use default
     const bpm = music.bpm || this.metronomeState.bpm;
+
+    // Determine metronome enabled state:
+    // per-track override takes precedence, then music default, then current state
+    const trackOverride = (track as any).metronome_enabled_override;
+    const metronomeEnabled = trackOverride !== undefined && trackOverride !== null
+      ? trackOverride
+      : ((music as any).metronome_default_enabled !== undefined
+          ? (music as any).metronome_default_enabled
+          : true);
     const beatDurationMs = 60000 / bpm;
     
     // Calculate timing
@@ -125,6 +135,11 @@ export class PlaybackService {
       ? countInStartTime + countInDurationMs 
       : countInStartTime;
 
+    // Resolve effective performer: item performer > music performer > 'Chor'
+    const effectivePerformer = (track as any).performer
+      || (music as any).performer
+      || 'Chor';
+
     // Update state
     this.currentState = {
       status: effectiveCountInBeats > 0 ? PlaybackStatus.COUNT_IN : PlaybackStatus.LOADING,
@@ -133,8 +148,10 @@ export class PlaybackService {
       currentTrackUid: track.music_uid,
       currentTrackTitle: music.title,
       currentTrackAuthor: music.author,
+      currentTrackPerformer: effectivePerformer,
       bpm: bpm,
-      metronomeOffset: (music as any).metronome_offset || 0, // Get from music if available
+      timeSignature: (music as any).time_signature || '4/4',
+      metronomeOffset: (music as any).metronome_offset || 0,
       scheduledStartTime: songStartTime,
       countInStartTime: effectiveCountInBeats > 0 ? countInStartTime : undefined,
       countInBeats: effectiveCountInBeats > 0 ? effectiveCountInBeats : undefined,
@@ -147,7 +164,7 @@ export class PlaybackService {
     this.metronomeState.bpm = bpm;
     this.metronomeState.startTime = songStartTime;
     this.metronomeState.countInBeats = effectiveCountInBeats;
-    this.metronomeState.enabled = true; // Auto-enable metronome
+    this.metronomeState.enabled = metronomeEnabled;
 
     // Calculate delay until song should start
     const delayUntilSongStart = songStartTime - now;
@@ -214,6 +231,7 @@ export class PlaybackService {
     this.playbackStartTime = Date.now() - startPositionMs;
     this.currentState.scheduledStartTime = Date.now() - startPositionMs;
     this.broadcast(WS_EVENTS.PLAYBACK_STARTED, this.getState());
+    this.broadcast(WS_EVENTS.METRONOME_STATE, this.getMetronomeState());
     this.logger.log(`Audio playback started from position ${startPositionMs}ms`);
   }
 
@@ -453,7 +471,8 @@ export class PlaybackService {
     }
 
     const nextIndex = this.currentState.currentTrackIndex + 1;
-    if (nextIndex >= this.currentPlaylist.tracks.length) {
+    const trackCount = (this.currentPlaylist.items ?? []).filter((i: any) => i.type === 'TRACK').length;
+    if (nextIndex >= trackCount) {
       return this.stop();
     }
 

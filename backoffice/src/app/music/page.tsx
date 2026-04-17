@@ -27,7 +27,9 @@ import {
   CardMedia,
   CardContent,
   CardActions,
-  Tooltip
+  Tooltip,
+  Switch,
+  FormControlLabel,
 } from '@mui/material';
 import {
   CloudUpload,
@@ -80,6 +82,9 @@ interface Music {
   genre: Genre;
   bpm?: number;
   metronome_offset?: number;
+  metronome_default_enabled?: boolean;
+  time_signature?: string;
+  performer?: string;
   duration?: number;
   lyrics?: string;
   creation_timestamp: string;
@@ -100,11 +105,18 @@ interface MusicTableProps {
 }
 
 enum PresentationType {
-  LIVE = 'LIVE',
-  STUDIO = 'STUDIO',
-  REMIX = 'REMIX',
-  ACOUSTIC = 'ACOUSTIC'
+  A_CAPELLA = 'A_CAPELLA',
+  LIVE_PIANO = 'LIVE_PIANO',
+  PLAYBACK = 'PLAYBACK',
 }
+
+const PRESENTATION_TYPE_LABELS: Record<PresentationType, string> = {
+  [PresentationType.A_CAPELLA]: 'A Capella',
+  [PresentationType.LIVE_PIANO]: 'Live Piano',
+  [PresentationType.PLAYBACK]: 'Playback',
+};
+
+const TIME_SIGNATURES = ['4/4', '3/4', '6/8', '2/4', '5/4', '7/8', '12/8'];
 
 enum Genre {
   ROCK = 'ROCK',
@@ -144,6 +156,9 @@ interface CreateMusicInput {
   genre: Genre;
   bpm?: number;
   metronome_offset?: number;
+  metronome_default_enabled?: boolean;
+  time_signature?: string;
+  performer?: string;
   duration?: number;
   lyrics?: string;
 }
@@ -172,6 +187,9 @@ interface EditMusicMetadata {
   genre: Genre;
   bpm?: number;
   metronome_offset?: number;
+  metronome_default_enabled?: boolean;
+  time_signature?: string;
+  performer?: string;
   duration?: number;
 }
 
@@ -526,8 +544,11 @@ export default function MusicManagement() {
   const [uploadForm, setUploadForm] = useState<CreateMusicInput>({
     title: '',
     author: '',
-    presentation_type: PresentationType.STUDIO,
-    genre: Genre.OTHER
+    performer: 'Chor',
+    presentation_type: PresentationType.A_CAPELLA,
+    genre: Genre.OTHER,
+    time_signature: '4/4',
+    metronome_default_enabled: true,
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadSheets, setUploadSheets] = useState<LocalSheet[]>([]);
@@ -562,6 +583,9 @@ export default function MusicManagement() {
                 genre
                 bpm
                 metronome_offset
+                metronome_default_enabled
+                time_signature
+                performer
                 duration
                 lyrics
                 creation_timestamp
@@ -699,8 +723,11 @@ export default function MusicManagement() {
       setUploadForm({
         title: '',
         author: '',
-        presentation_type: PresentationType.STUDIO,
-        genre: Genre.OTHER
+        performer: 'Chor',
+        presentation_type: PresentationType.A_CAPELLA,
+        genre: Genre.OTHER,
+        time_signature: '4/4',
+        metronome_default_enabled: true,
       });
       setSelectedFile(null);
       // Revoke any object URLs
@@ -741,6 +768,9 @@ export default function MusicManagement() {
               genre: editMetadata.genre,
               bpm: editMetadata.bpm,
               metronome_offset: editMetadata.metronome_offset,
+              metronome_default_enabled: editMetadata.metronome_default_enabled,
+              time_signature: editMetadata.time_signature,
+              performer: editMetadata.performer,
               duration: editMetadata.duration,
               lyrics: editLyrics || undefined
             }
@@ -910,6 +940,9 @@ export default function MusicManagement() {
       genre: row.genre,
       bpm: row.bpm,
       metronome_offset: row.metronome_offset,
+      metronome_default_enabled: row.metronome_default_enabled ?? true,
+      time_signature: row.time_signature || '4/4',
+      performer: row.performer || 'Chor',
       duration: row.duration
     });
     setEditLyrics(row.lyrics || '');
@@ -1102,7 +1135,30 @@ export default function MusicManagement() {
                   onChange={(e) => setUploadForm({ ...uploadForm, presentation_type: e.target.value as PresentationType })}
                 >
                   {Object.values(PresentationType).map((type) => (
-                    <MenuItem key={type} value={type}>{type}</MenuItem>
+                    <MenuItem key={type} value={type}>{PRESENTATION_TYPE_LABELS[type]}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                fullWidth
+                label="Performer"
+                value={uploadForm.performer || ''}
+                placeholder="Chor"
+                onChange={(e) => setUploadForm({ ...uploadForm, performer: e.target.value })}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <FormControl fullWidth>
+                <InputLabel>Taktart</InputLabel>
+                <Select
+                  value={uploadForm.time_signature || '4/4'}
+                  label="Taktart"
+                  onChange={(e) => setUploadForm({ ...uploadForm, time_signature: e.target.value })}
+                >
+                  {TIME_SIGNATURES.map((ts) => (
+                    <MenuItem key={ts} value={ts}>{ts}</MenuItem>
                   ))}
                 </Select>
               </FormControl>
@@ -1134,6 +1190,17 @@ export default function MusicManagement() {
                 value={uploadForm.duration || ''}
                 onChange={(e) => setUploadForm({ ...uploadForm, duration: parseInt(e.target.value) || undefined })}
                 helperText={uploadForm.duration ? formatDuration(uploadForm.duration) : 'Auto-filled from audio file'}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={uploadForm.metronome_default_enabled ?? true}
+                    onChange={(e) => setUploadForm({ ...uploadForm, metronome_default_enabled: e.target.checked })}
+                  />
+                }
+                label="Metronom standardmäßig aktiv"
               />
             </Grid>
             <Grid size={12}>
@@ -1221,7 +1288,30 @@ export default function MusicManagement() {
                     onChange={(e) => setEditMetadata((prev) => prev ? { ...prev, presentation_type: e.target.value as PresentationType } : prev)}
                   >
                     {Object.values(PresentationType).map((type) => (
-                      <MenuItem key={type} value={type}>{type}</MenuItem>
+                      <MenuItem key={type} value={type}>{PRESENTATION_TYPE_LABELS[type]}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  fullWidth
+                  label="Performer"
+                  value={editMetadata.performer || ''}
+                  placeholder="Chor"
+                  onChange={(e) => setEditMetadata((prev) => prev ? { ...prev, performer: e.target.value } : prev)}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <FormControl fullWidth>
+                  <InputLabel>Taktart</InputLabel>
+                  <Select
+                    value={editMetadata.time_signature || '4/4'}
+                    label="Taktart"
+                    onChange={(e) => setEditMetadata((prev) => prev ? { ...prev, time_signature: e.target.value } : prev)}
+                  >
+                    {TIME_SIGNATURES.map((ts) => (
+                      <MenuItem key={ts} value={ts}>{ts}</MenuItem>
                     ))}
                   </Select>
                 </FormControl>
@@ -1253,6 +1343,17 @@ export default function MusicManagement() {
                   value={editMetadata.duration ?? ''}
                   onChange={(e) => setEditMetadata((prev) => prev ? { ...prev, duration: parseInt(e.target.value) || undefined } : prev)}
                   helperText={editMetadata.duration ? formatDuration(editMetadata.duration) : ''}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={editMetadata.metronome_default_enabled ?? true}
+                      onChange={(e) => setEditMetadata((prev) => prev ? { ...prev, metronome_default_enabled: e.target.checked } : prev)}
+                    />
+                  }
+                  label="Metronom standardmäßig aktiv"
                 />
               </Grid>
               <Grid size={12}>

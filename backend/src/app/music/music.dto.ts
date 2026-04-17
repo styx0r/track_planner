@@ -7,13 +7,12 @@ import {
   Int,
   GraphQLISODateTime,
 } from '@nestjs/graphql';
-import { IsString, IsOptional, IsEnum, IsNumber } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsNumber, IsBoolean } from 'class-validator';
 
 export enum PresentationType {
-  LIVE = 'LIVE',
-  STUDIO = 'STUDIO',
-  REMIX = 'REMIX',
-  ACOUSTIC = 'ACOUSTIC',
+  A_CAPELLA = 'A_CAPELLA',
+  LIVE_PIANO = 'LIVE_PIANO',
+  PLAYBACK = 'PLAYBACK',
 }
 
 export enum Genre {
@@ -107,6 +106,15 @@ export class Music {
   @Field({ nullable: true })
   file_name?: string;
 
+  @Field({ nullable: true })
+  performer?: string;
+
+  @Field({ nullable: true })
+  time_signature?: string;
+
+  @Field(() => Boolean, { nullable: true })
+  metronome_default_enabled?: boolean;
+
   @Field(() => [SheetMusic], { nullable: true })
   sheets?: SheetMusic[];
 }
@@ -158,6 +166,21 @@ export class CreateMusicInput {
   @IsOptional()
   @IsString()
   lyrics?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  performer?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  time_signature?: string;
+
+  @Field(() => Boolean, { nullable: true })
+  @IsOptional()
+  @IsBoolean()
+  metronome_default_enabled?: boolean;
 }
 
 @InputType()
@@ -215,6 +238,21 @@ export class UpdateMusicInput {
   @IsOptional()
   @IsString()
   lyrics?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  performer?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  time_signature?: string;
+
+  @Field(() => Boolean, { nullable: true })
+  @IsOptional()
+  @IsBoolean()
+  metronome_default_enabled?: boolean;
 }
 
 @InputType()

@@ -11,7 +11,7 @@ import {
   Button,
   Grid
 } from '@mui/material';
-import { MusicNote, Dashboard, QueueMusic } from '@mui/icons-material';
+import { MusicNote, Dashboard, QueueMusic, Comment } from '@mui/icons-material';
 import Link from 'next/link';
 
 export default function BackofficeHome() {
@@ -63,6 +63,27 @@ export default function BackofficeHome() {
               <Link href="/playlists" passHref>
                 <Button variant="contained" startIcon={<QueueMusic />}>
                   Manage Playlists
+                </Button>
+              </Link>
+            </CardActions>
+          </Card>
+        </Grid>
+
+        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+          <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <CardContent sx={{ flexGrow: 1, textAlign: 'center' }}>
+              <Comment sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
+              <Typography variant="h5" component="h2" gutterBottom>
+                Moderation Library
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Moderationstexte anlegen und verwalten. Mit Kategorien, Autor und Datum.
+              </Typography>
+            </CardContent>
+            <CardActions sx={{ justifyContent: 'center', pb: 2 }}>
+              <Link href="/moderation" passHref>
+                <Button variant="contained" startIcon={<Comment />}>
+                  Moderationstexte
                 </Button>
               </Link>
             </CardActions>

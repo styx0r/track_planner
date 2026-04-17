@@ -25,6 +25,11 @@ import {
   CircularProgress,
   Snackbar,
   Alert,
+  Chip,
+  Tooltip,
+  ToggleButton,
+  ToggleButtonGroup,
+  Collapse,
 } from '@mui/material';
 import {
   ArrowBack,
@@ -35,51 +40,80 @@ import {
   ArrowDownward,
   RemoveCircle,
   QueueMusic,
+  GraphicEq,
+  ExpandMore,
+  ExpandLess,
+  MicNone,
+  Comment,
+  MusicNote,
 } from '@mui/icons-material';
+
+type PlaylistItemType = 'TRACK' | 'MODERATION_TEXT';
 
 interface MusicSummary {
   uid: string;
   title: string;
   author: string;
+  performer?: string;
+  bpm?: number;
+  time_signature?: string;
+  metronome_default_enabled?: boolean;
 }
 
-interface PlaylistTrack {
-  music_uid: string;
+interface ModerationText {
+  uid: string;
+  author: string;
+  creation_date: string;
+  category: string;
+  text: string;
+}
+
+interface PlaylistItemData {
+  type: PlaylistItemType;
   order: number;
+  performer?: string;
+  // TRACK
+  music_uid?: string;
+  metronome_enabled_override?: boolean | null;
   music?: MusicSummary;
+  // MODERATION_TEXT
+  moderation_text_uid?: string;
+  moderation_text?: { uid: string; text: string; author: string; category: string };
+}
+
+interface PlaylistItemFormItem extends PlaylistItemData {
+  localId: string;
+  expanded: boolean;
 }
 
 interface Playlist {
   uid: string;
   name: string;
   description?: string;
-  tracks: PlaylistTrack[];
-}
-
-interface PlaylistTrackFormItem {
-  musicUid: string;
-  order: number;
-  music?: MusicSummary;
+  items: PlaylistItemData[];
 }
 
 export default function PlaylistsPage() {
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [music, setMusic] = useState<MusicSummary[]>([]);
+  const [moderationTexts, setModerationTexts] = useState<ModerationText[]>([]);
   const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
 
   const [playlistDialogOpen, setPlaylistDialogOpen] = useState(false);
   const [editingPlaylist, setEditingPlaylist] = useState<Playlist | null>(null);
   const [playlistForm, setPlaylistForm] = useState({ name: '', description: '' });
-  const [playlistTracks, setPlaylistTracks] = useState<PlaylistTrackFormItem[]>([]);
+  const [playlistItems, setPlaylistItems] = useState<PlaylistItemFormItem[]>([]);
   const [trackToAdd, setTrackToAdd] = useState('');
+  const [moderationToAdd, setModerationToAdd] = useState('');
 
   const closePlaylistDialog = useCallback(() => {
     setPlaylistDialogOpen(false);
     setEditingPlaylist(null);
     setPlaylistForm({ name: '', description: '' });
-    setPlaylistTracks([]);
+    setPlaylistItems([]);
     setTrackToAdd('');
+    setModerationToAdd('');
   }, []);
 
   const loadPlaylists = useCallback(async () => {
@@ -95,10 +129,15 @@ export default function PlaylistsPage() {
                 uid
                 name
                 description
-                tracks {
-                  music_uid
+                items {
+                  type
                   order
-                  music { uid title author }
+                  performer
+                  music_uid
+                  metronome_enabled_override
+                  music { uid title author performer bpm time_signature metronome_default_enabled }
+                  moderation_text_uid
+                  moderation_text { uid text author category }
                 }
               }
             }
@@ -124,9 +163,7 @@ export default function PlaylistsPage() {
           query: `
             query GetMusic {
               searchMusic(searchInput: null) {
-                uid
-                title
-                author
+                uid title author performer bpm time_signature metronome_default_enabled
               }
             }
           `,
@@ -140,72 +177,132 @@ export default function PlaylistsPage() {
     }
   }, []);
 
+  const loadModerationTexts = useCallback(async () => {
+    try {
+      const response = await fetch('/api/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            query GetModerationTexts {
+              moderationTexts {
+                uid author creation_date category text
+              }
+            }
+          `,
+        }),
+      });
+      const data = await response.json();
+      if (data.errors) throw new Error(data.errors[0].message);
+      setModerationTexts(data.data.moderationTexts);
+    } catch {
+      // optional
+    }
+  }, []);
+
   useEffect(() => {
     loadPlaylists();
     loadMusic();
-  }, [loadPlaylists, loadMusic]);
+    loadModerationTexts();
+  }, [loadPlaylists, loadMusic, loadModerationTexts]);
 
   const handleCreatePlaylistClick = useCallback(() => {
     setEditingPlaylist(null);
     setPlaylistForm({ name: '', description: '' });
-    setPlaylistTracks([]);
+    setPlaylistItems([]);
     setTrackToAdd('');
+    setModerationToAdd('');
     setPlaylistDialogOpen(true);
   }, []);
 
   const handleEditPlaylist = useCallback((playlist: Playlist) => {
     setEditingPlaylist(playlist);
     setPlaylistForm({ name: playlist.name, description: playlist.description || '' });
-    const sortedTracks = [...playlist.tracks].sort((a, b) => a.order - b.order);
-    setPlaylistTracks(
-      sortedTracks.map((track) => ({
-        musicUid: track.music_uid,
-        order: track.order,
-        music: track.music,
+    const sorted = [...playlist.items].sort((a, b) => a.order - b.order);
+    setPlaylistItems(
+      sorted.map((item, idx) => ({
+        ...item,
+        metronome_enabled_override: item.metronome_enabled_override ?? null,
+        localId: `existing-${idx}-${item.music_uid ?? item.moderation_text_uid}`,
+        expanded: false,
       }))
     );
     setTrackToAdd('');
+    setModerationToAdd('');
     setPlaylistDialogOpen(true);
   }, []);
 
-  const handleAddTrackToPlaylist = useCallback(() => {
+  const handleAddTrack = useCallback(() => {
     if (!trackToAdd) return;
-    const musicItem = music.find((item) => item.uid === trackToAdd);
-
-    setPlaylistTracks((prev) => {
-      if (prev.some((track) => track.musicUid === trackToAdd)) {
+    const musicItem = music.find((m) => m.uid === trackToAdd);
+    setPlaylistItems((prev) => {
+      if (prev.some((i) => i.type === 'TRACK' && i.music_uid === trackToAdd)) {
         setSnackbar({ open: true, message: 'Track already in playlist', severity: 'error' });
         return prev;
       }
-
       return [
         ...prev,
         {
-          musicUid: trackToAdd,
+          type: 'TRACK',
           order: prev.length,
+          music_uid: trackToAdd,
           music: musicItem,
+          metronome_enabled_override: null,
+          localId: `new-track-${trackToAdd}-${Date.now()}`,
+          expanded: false,
         },
       ];
     });
-
     setTrackToAdd('');
   }, [trackToAdd, music]);
 
-  const movePlaylistTrack = useCallback((index: number, direction: -1 | 1) => {
-    setPlaylistTracks((prev) => {
+  const handleAddModerationText = useCallback(() => {
+    if (!moderationToAdd) return;
+    const mt = moderationTexts.find((m) => m.uid === moderationToAdd);
+    setPlaylistItems((prev) => [
+      ...prev,
+      {
+        type: 'MODERATION_TEXT',
+        order: prev.length,
+        moderation_text_uid: moderationToAdd,
+        moderation_text: mt ? { uid: mt.uid, text: mt.text, author: mt.author, category: mt.category } : undefined,
+        localId: `new-mod-${moderationToAdd}-${Date.now()}`,
+        expanded: false,
+      },
+    ]);
+    setModerationToAdd('');
+  }, [moderationToAdd, moderationTexts]);
+
+  const moveItem = useCallback((index: number, direction: -1 | 1) => {
+    setPlaylistItems((prev) => {
       const targetIndex = index + direction;
       if (targetIndex < 0 || targetIndex >= prev.length) return prev;
       const updated = [...prev];
       [updated[index], updated[targetIndex]] = [updated[targetIndex], updated[index]];
-      return updated.map((track, idx) => ({ ...track, order: idx }));
+      return updated.map((item, idx) => ({ ...item, order: idx }));
     });
   }, []);
 
-  const handleRemovePlaylistTrack = useCallback((musicUid: string) => {
-    setPlaylistTracks((prev) =>
+  const removeItem = useCallback((localId: string) => {
+    setPlaylistItems((prev) =>
       prev
-        .filter((track) => track.musicUid !== musicUid)
-        .map((track, idx) => ({ ...track, order: idx }))
+        .filter((i) => i.localId !== localId)
+        .map((item, idx) => ({ ...item, order: idx }))
+    );
+  }, []);
+
+  const updateItemField = useCallback(
+    (localId: string, field: 'performer' | 'metronome_enabled_override', value: string | boolean | null) => {
+      setPlaylistItems((prev) =>
+        prev.map((i) => (i.localId === localId ? { ...i, [field]: value } : i))
+      );
+    },
+    []
+  );
+
+  const toggleExpanded = useCallback((localId: string) => {
+    setPlaylistItems((prev) =>
+      prev.map((i) => (i.localId === localId ? { ...i, expanded: !i.expanded } : i))
     );
   }, []);
 
@@ -218,7 +315,17 @@ export default function PlaylistsPage() {
     const payload = {
       name: playlistForm.name.trim(),
       description: playlistForm.description.trim() || undefined,
-      tracks: playlistTracks.map((track, index) => ({ music_uid: track.musicUid, order: index })),
+      items: playlistItems.map((item, index) => ({
+        type: item.type,
+        order: index,
+        performer: item.performer || undefined,
+        music_uid: item.type === 'TRACK' ? item.music_uid : undefined,
+        metronome_enabled_override:
+          item.type === 'TRACK'
+            ? (item.metronome_enabled_override === null ? undefined : item.metronome_enabled_override)
+            : undefined,
+        moderation_text_uid: item.type === 'MODERATION_TEXT' ? item.moderation_text_uid : undefined,
+      })),
     };
 
     const body = editingPlaylist
@@ -258,7 +365,7 @@ export default function PlaylistsPage() {
     } catch (error) {
       setSnackbar({ open: true, message: `Saving playlist failed: ${error}`, severity: 'error' });
     }
-  }, [playlistForm, playlistTracks, editingPlaylist, closePlaylistDialog, loadPlaylists]);
+  }, [playlistForm, playlistItems, editingPlaylist, closePlaylistDialog, loadPlaylists]);
 
   const handleDeletePlaylist = useCallback(async (uid: string) => {
     if (!confirm('Are you sure you want to delete this playlist?')) return;
@@ -267,11 +374,7 @@ export default function PlaylistsPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          query: `
-            mutation DeletePlaylist($uid: String!) {
-              deletePlaylist(uid: $uid)
-            }
-          `,
+          query: `mutation DeletePlaylist($uid: String!) { deletePlaylist(uid: $uid) }`,
           variables: { uid },
         }),
       });
@@ -284,7 +387,10 @@ export default function PlaylistsPage() {
     }
   }, [loadPlaylists]);
 
-  const availableTracks = useMemo(() => music, [music]);
+  const usedTrackUids = useMemo(
+    () => new Set(playlistItems.filter((i) => i.type === 'TRACK').map((i) => i.music_uid!)),
+    [playlistItems]
+  );
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -315,49 +421,82 @@ export default function PlaylistsPage() {
           </Box>
         ) : playlists.length === 0 ? (
           <Typography variant="body2" color="text.secondary">
-            No playlists yet. Click “New Playlist” to create one.
+            No playlists yet. Click "New Playlist" to create one.
           </Typography>
         ) : (
           <List>
-            {playlists.map((playlist, idx) => (
-              <React.Fragment key={playlist.uid}>
-                {idx > 0 && <Divider sx={{ my: 1.5 }} />}
-                <ListItem disableGutters>
-                  <ListItemText
-                    primary={playlist.name}
-                    secondary={
-                      playlist.description
-                        ? `${playlist.description} • ${playlist.tracks.length} tracks`
-                        : `${playlist.tracks.length} tracks`
-                    }
-                  />
-                  <Box sx={{ display: 'flex', gap: 0.5 }}>
-                    <IconButton size="small" onClick={() => handleEditPlaylist(playlist)}>
-                      <Edit fontSize="small" />
-                    </IconButton>
-                    <IconButton size="small" color="error" onClick={() => handleDeletePlaylist(playlist.uid)}>
-                      <Delete fontSize="small" />
-                    </IconButton>
-                  </Box>
-                </ListItem>
-                {playlist.tracks.length > 0 && (
-                  <Box sx={{ pl: 2 }}>
-                    <List dense>
-                      {[...playlist.tracks]
-                        .sort((a, b) => a.order - b.order)
-                        .map((track) => (
-                          <ListItem key={track.music_uid} disableGutters>
-                            <ListItemText
-                              primary={`${track.order + 1}. ${track.music?.title ?? 'Unknown track'}`}
-                              secondary={track.music?.author}
-                            />
-                          </ListItem>
-                        ))}
-                    </List>
-                  </Box>
-                )}
-              </React.Fragment>
-            ))}
+            {playlists.map((playlist, idx) => {
+              const trackCount = playlist.items.filter((i) => i.type === 'TRACK').length;
+              const modCount = playlist.items.filter((i) => i.type === 'MODERATION_TEXT').length;
+              return (
+                <React.Fragment key={playlist.uid}>
+                  {idx > 0 && <Divider sx={{ my: 1.5 }} />}
+                  <ListItem disableGutters>
+                    <ListItemText
+                      primary={playlist.name}
+                      secondary={[
+                        playlist.description,
+                        trackCount > 0 ? `${trackCount} track(s)` : null,
+                        modCount > 0 ? `${modCount} moderation text(s)` : null,
+                      ].filter(Boolean).join(' • ')}
+                    />
+                    <Box sx={{ display: 'flex', gap: 0.5 }}>
+                      <IconButton size="small" onClick={() => handleEditPlaylist(playlist)}>
+                        <Edit fontSize="small" />
+                      </IconButton>
+                      <IconButton size="small" color="error" onClick={() => handleDeletePlaylist(playlist.uid)}>
+                        <Delete fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  </ListItem>
+                  {playlist.items.length > 0 && (
+                    <Box sx={{ pl: 2 }}>
+                      <List dense>
+                        {[...playlist.items]
+                          .sort((a, b) => a.order - b.order)
+                          .map((item) => (
+                            <ListItem
+                              key={item.type === 'TRACK' ? item.music_uid : `${item.moderation_text_uid}-${item.order}`}
+                              disableGutters
+                            >
+                              {item.type === 'TRACK' ? (
+                                <ListItemText
+                                  primary={
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                      <MusicNote sx={{ fontSize: 14, color: 'text.secondary' }} />
+                                      {`${item.order + 1}. ${item.music?.title ?? 'Unknown track'}`}
+                                    </Box>
+                                  }
+                                  secondary={[
+                                    item.performer || item.music?.performer || item.music?.author,
+                                    item.metronome_enabled_override !== undefined && item.metronome_enabled_override !== null
+                                      ? `Metronom: ${item.metronome_enabled_override ? 'An' : 'Aus'}`
+                                      : null,
+                                  ].filter(Boolean).join(' • ')}
+                                />
+                              ) : (
+                                <ListItemText
+                                  primary={
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                      <Comment sx={{ fontSize: 14, color: 'text.secondary' }} />
+                                      {`${item.order + 1}. ${item.moderation_text?.text?.slice(0, 60) ?? 'Moderation text'}…`}
+                                    </Box>
+                                  }
+                                  secondary={[
+                                    item.performer,
+                                    item.moderation_text?.author,
+                                    item.moderation_text?.category,
+                                  ].filter(Boolean).join(' · ')}
+                                />
+                              )}
+                            </ListItem>
+                          ))}
+                      </List>
+                    </Box>
+                  )}
+                </React.Fragment>
+              );
+            })}
           </List>
         )}
       </Paper>
@@ -383,64 +522,195 @@ export default function PlaylistsPage() {
             sx={{ mt: 2 }}
           />
 
-          <FormControl fullWidth sx={{ mt: 3 }}>
-            <InputLabel>Add Track</InputLabel>
-            <Select
-              value={trackToAdd}
-              label="Add Track"
-              onChange={(e) => setTrackToAdd(e.target.value as string)}
-            >
-              {availableTracks.map((song) => (
-                <MenuItem
-                  key={song.uid}
-                  value={song.uid}
-                  disabled={playlistTracks.some((track) => track.musicUid === song.uid)}
-                >
-                  {song.title} — {song.author}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <Button sx={{ mt: 1 }} startIcon={<Add />} variant="outlined" onClick={handleAddTrackToPlaylist} disabled={!trackToAdd}>
-            Add Track
-          </Button>
+          <Divider sx={{ my: 3 }} />
 
-          <List dense sx={{ mt: 2 }}>
-            {playlistTracks.length === 0 ? (
+          {/* Unified items list */}
+          <Typography variant="subtitle2" gutterBottom>
+            Playlist-Inhalt
+          </Typography>
+
+          <List dense sx={{ mt: 1 }}>
+            {playlistItems.length === 0 ? (
               <ListItem>
-                <ListItemText primary="No tracks selected yet." primaryTypographyProps={{ color: 'text.secondary' }} />
+                <ListItemText
+                  primary="Noch keine Einträge."
+                  primaryTypographyProps={{ color: 'text.secondary' }}
+                />
               </ListItem>
             ) : (
-              playlistTracks.map((track, index) => (
-                <ListItem
-                  key={track.musicUid}
-                  divider
-                  secondaryAction={
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <IconButton size="small" disabled={index === 0} onClick={() => movePlaylistTrack(index, -1)}>
+              playlistItems.map((item, index) => (
+                <React.Fragment key={item.localId}>
+                  <ListItem divider sx={{ pr: 1, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                    <Box sx={{ mr: 1, mt: 0.5, color: 'text.secondary' }}>
+                      {item.type === 'TRACK' ? (
+                        <MusicNote fontSize="small" />
+                      ) : (
+                        <Comment fontSize="small" />
+                      )}
+                    </Box>
+                    <ListItemText
+                      primary={
+                        item.type === 'TRACK'
+                          ? `${index + 1}. ${item.music?.title ?? 'Unknown'}`
+                          : `${index + 1}. ${item.moderation_text?.text?.slice(0, 60) ?? 'Moderation text'}…`
+                      }
+                      secondary={
+                        item.performer
+                          ? item.performer
+                          : item.type === 'TRACK'
+                          ? item.music?.performer || item.music?.author
+                          : item.moderation_text?.author
+                      }
+                      sx={{ flexGrow: 1, minWidth: 0 }}
+                    />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
+                      <Tooltip title="Details">
+                        <IconButton size="small" onClick={() => toggleExpanded(item.localId)}>
+                          {item.expanded ? <ExpandLess fontSize="small" /> : <ExpandMore fontSize="small" />}
+                        </IconButton>
+                      </Tooltip>
+                      <IconButton size="small" disabled={index === 0} onClick={() => moveItem(index, -1)}>
                         <ArrowUpward fontSize="small" />
                       </IconButton>
                       <IconButton
                         size="small"
-                        disabled={index === playlistTracks.length - 1}
-                        onClick={() => movePlaylistTrack(index, 1)}
+                        disabled={index === playlistItems.length - 1}
+                        onClick={() => moveItem(index, 1)}
                       >
                         <ArrowDownward fontSize="small" />
                       </IconButton>
-                      <IconButton size="small" color="error" onClick={() => handleRemovePlaylistTrack(track.musicUid)}>
+                      <IconButton size="small" color="error" onClick={() => removeItem(item.localId)}>
                         <RemoveCircle fontSize="small" />
                       </IconButton>
                     </Box>
-                  }
-                >
-                  <ListItemText
-                    primary={`${index + 1}. ${track.music?.title ?? 'Unknown track'}`}
-                    secondary={track.music?.author}
-                  />
-                </ListItem>
+                  </ListItem>
+                  <Collapse in={item.expanded} timeout="auto" unmountOnExit>
+                    <Box sx={{ px: 2, py: 1.5, bgcolor: 'action.hover', mb: 0.5 }}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Performer"
+                        placeholder={
+                          item.type === 'TRACK'
+                            ? `Standard: ${item.music?.performer || item.music?.author || 'Chor'}`
+                            : 'Performer / Sprecher'
+                        }
+                        value={item.performer || ''}
+                        onChange={(e) =>
+                          updateItemField(item.localId, 'performer', e.target.value || '')
+                        }
+                        InputProps={{
+                          startAdornment: <MicNone sx={{ mr: 1, color: 'text.secondary', fontSize: 18 }} />,
+                        }}
+                        sx={{ mb: item.type === 'TRACK' ? 1.5 : 0 }}
+                      />
+                      {item.type === 'TRACK' && (
+                        <Box>
+                          <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
+                            Metronom
+                          </Typography>
+                          <ToggleButtonGroup
+                            size="small"
+                            exclusive
+                            value={
+                              item.metronome_enabled_override === null ||
+                              item.metronome_enabled_override === undefined
+                                ? 'inherit'
+                                : item.metronome_enabled_override
+                                ? 'on'
+                                : 'off'
+                            }
+                            onChange={(_, val) => {
+                              if (val === null) return;
+                              updateItemField(
+                                item.localId,
+                                'metronome_enabled_override',
+                                val === 'inherit' ? null : val === 'on'
+                              );
+                            }}
+                          >
+                            <ToggleButton value="inherit">
+                              <Tooltip
+                                title={`Aus Lied übernehmen (${(item.music?.metronome_default_enabled ?? true) ? 'An' : 'Aus'})`}
+                              >
+                                <span>Inherit</span>
+                              </Tooltip>
+                            </ToggleButton>
+                            <ToggleButton value="on">
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <GraphicEq fontSize="small" /> An
+                              </Box>
+                            </ToggleButton>
+                            <ToggleButton value="off">Aus</ToggleButton>
+                          </ToggleButtonGroup>
+                        </Box>
+                      )}
+                      {item.type === 'MODERATION_TEXT' && item.moderation_text && (
+                        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                          [{item.moderation_text.category}] {item.moderation_text.author}
+                          {' — '}
+                          {item.moderation_text.text.slice(0, 120)}
+                          {item.moderation_text.text.length > 120 ? '…' : ''}
+                        </Typography>
+                      )}
+                    </Box>
+                  </Collapse>
+                </React.Fragment>
               ))
             )}
           </List>
+
+          {/* Add track */}
+          <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Song hinzufügen</InputLabel>
+              <Select
+                value={trackToAdd}
+                label="Song hinzufügen"
+                onChange={(e) => setTrackToAdd(e.target.value as string)}
+              >
+                {music.map((song) => (
+                  <MenuItem key={song.uid} value={song.uid} disabled={usedTrackUids.has(song.uid)}>
+                    {song.title} — {song.performer || song.author}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <Button
+              variant="outlined"
+              onClick={handleAddTrack}
+              disabled={!trackToAdd}
+              startIcon={<Add />}
+            >
+              Add
+            </Button>
+          </Box>
+
+          {/* Add moderation text */}
+          <Box sx={{ display: 'flex', gap: 1, mt: 1.5 }}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Moderationstext hinzufügen</InputLabel>
+              <Select
+                value={moderationToAdd}
+                label="Moderationstext hinzufügen"
+                onChange={(e) => setModerationToAdd(e.target.value as string)}
+              >
+                {moderationTexts.map((mt) => (
+                  <MenuItem key={mt.uid} value={mt.uid}>
+                    [{mt.category}] {mt.author} — {mt.text.slice(0, 60)}{mt.text.length > 60 ? '…' : ''}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <Button
+              variant="outlined"
+              onClick={handleAddModerationText}
+              disabled={!moderationToAdd}
+              startIcon={<Add />}
+            >
+              Add
+            </Button>
+          </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={closePlaylistDialog}>Cancel</Button>
@@ -458,9 +728,3 @@ export default function PlaylistsPage() {
     </Container>
   );
 }
-
-
-
-
-
-

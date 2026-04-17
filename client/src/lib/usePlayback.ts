@@ -151,10 +151,6 @@ export function usePlayback(): UsePlaybackReturn {
 
     socket.on(WS_EVENTS.PLAYBACK_STARTED, (state: PlaybackState) => {
       setPlaybackState(state);
-      // Auto-enable metronome when playback starts
-      if (!metronomeState.enabled) {
-        setMetronomeState(prev => ({ ...prev, enabled: true }));
-      }
     });
 
     socket.on(WS_EVENTS.PLAYBACK_PAUSED, (state: PlaybackState) => {

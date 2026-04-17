@@ -17,6 +17,8 @@ export interface PlaybackState {
   currentTrackUid?: string;
   currentTrackTitle?: string;
   currentTrackAuthor?: string;
+  currentTrackPerformer?: string;
+  timeSignature?: string;
   positionMs?: number;
   durationMs?: number;
   bpm?: number;
@@ -45,6 +47,11 @@ export interface SheetMusicItem {
   thumbnail_url?: string;
 }
 
+export enum PlaylistItemType {
+  TRACK = 'TRACK',
+  MODERATION_TEXT = 'MODERATION_TEXT',
+}
+
 export interface PlaylistTrackSummary {
   uid: string;
   title: string;
@@ -52,10 +59,15 @@ export interface PlaylistTrackSummary {
   sheets?: SheetMusicItem[];
 }
 
-export interface PlaylistTrack {
-  music_uid: string;
+export interface PlaylistItem {
+  type: PlaylistItemType;
   order: number;
+  performer?: string;
+  music_uid?: string;
+  metronome_enabled_override?: boolean;
   music?: PlaylistTrackSummary;
+  moderation_text_uid?: string;
+  moderation_text?: { uid: string; text: string; author: string; category: string };
 }
 
 export interface Playlist {
@@ -64,7 +76,7 @@ export interface Playlist {
   description?: string;
   creation_timestamp: string;
   update_timestamp: string;
-  tracks: PlaylistTrack[];
+  items: PlaylistItem[];
 }
 
 export interface TimeSyncRequest {

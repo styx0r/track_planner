@@ -112,7 +112,8 @@ export function PlaylistsView({ initialMode }: PlaylistsViewProps) {
       return { url: stateSheet.url, title: playbackState.currentTrackTitle || 'Sheet Music' };
     }
     if (selectedPlaylist && playbackState.currentTrackIndex !== undefined) {
-      const track = selectedPlaylist.tracks[playbackState.currentTrackIndex];
+      const trackItems = selectedPlaylist.items.filter(i => i.type === 'TRACK');
+      const track = trackItems[playbackState.currentTrackIndex];
       const firstSheet = track?.music?.sheets?.[0];
       if (firstSheet) return { url: firstSheet.url, title: track.music?.title || 'Sheet Music' };
     }
@@ -193,6 +194,7 @@ export function PlaylistsView({ initialMode }: PlaylistsViewProps) {
             countInStartTime={isPerformanceMode ? null : countInStartTime}
             countInBeats={effectiveCountInBeats}
             metronomeOffset={playbackState.metronomeOffset ?? manualMetronomeOffset}
+            timeSignature={playbackState.timeSignature || '4/4'}
             performanceMode={isPerformanceMode}
             onToggle={toggleMetronome}
             onBpmChange={setMetronomeBpm}

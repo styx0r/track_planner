@@ -72,6 +72,9 @@ export class MusicService {
       file_url: refreshedUrl,
       creation_timestamp: new Date(doc.creation_timestamp),
       update_timestamp: new Date(doc.update_timestamp),
+      metronome_default_enabled: doc.metronome_default_enabled == null
+        ? undefined
+        : doc.metronome_default_enabled === true || doc.metronome_default_enabled === 'true',
     };
 
     // Handle sheets array (new format)

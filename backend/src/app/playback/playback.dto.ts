@@ -33,6 +33,12 @@ export class PlaybackState {
   @Field({ nullable: true })
   currentTrackAuthor?: string;
 
+  @Field({ nullable: true })
+  currentTrackPerformer?: string;
+
+  @Field({ nullable: true })
+  timeSignature?: string;
+
   @Field(() => Float, { nullable: true })
   positionMs?: number;
 

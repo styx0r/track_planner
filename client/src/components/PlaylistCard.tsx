@@ -1,6 +1,6 @@
 'use client';
 
-import { Playlist, PlaybackState, PlaybackStatus } from '../lib/types';
+import { Playlist, PlaybackState, PlaybackStatus, PlaylistItemType } from '../lib/types';
 import styles from './PlaylistCard.module.css';
 
 interface PlaylistCardProps {
@@ -46,53 +46,56 @@ export function PlaylistCard({
         <div className={styles.info}>
           <h3 className={styles.name}>{playlist.name}</h3>
           <p className={styles.description}>
-            {playlist.description || `${playlist.tracks.length} tracks`}
+            {playlist.description || `${playlist.items.filter(i => i.type === PlaylistItemType.TRACK).length} tracks`}
           </p>
         </div>
       </div>
 
       <div className={styles.tracks}>
-        {playlist.tracks.slice(0, 5).map((track, index) => {
-          const isThisTrackPlaying = isPlaying && isCurrentPlaylist && playbackState.currentTrackIndex === index;
-          return (
-            <div
-              key={track.music_uid}
-              className={`${styles.track} ${isCurrentPlaylist && playbackState.currentTrackIndex === index ? styles.playing : ''}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                if (isThisTrackPlaying) {
-                  onPause();
-                } else {
-                  onPlayTrack(playlist.uid, index);
-                }
-              }}
-            >
-              <span className={styles.trackNumber}>{index + 1}</span>
-              <div className={styles.trackInfo}>
-                <span className={styles.trackTitle}>
-                  {track.music?.title || 'Unknown Track'}
-                </span>
-                <span className={styles.trackArtist}>
-                  {track.music?.author || 'Unknown Artist'}
-                </span>
+        {playlist.items
+          .filter(i => i.type === PlaylistItemType.TRACK)
+          .slice(0, 5)
+          .map((track, index) => {
+            const isThisTrackPlaying = isPlaying && isCurrentPlaylist && playbackState.currentTrackIndex === index;
+            return (
+              <div
+                key={track.music_uid}
+                className={`${styles.track} ${isCurrentPlaylist && playbackState.currentTrackIndex === index ? styles.playing : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (isThisTrackPlaying) {
+                    onPause();
+                  } else {
+                    onPlayTrack(playlist.uid, index);
+                  }
+                }}
+              >
+                <span className={styles.trackNumber}>{index + 1}</span>
+                <div className={styles.trackInfo}>
+                  <span className={styles.trackTitle}>
+                    {track.music?.title || 'Unknown Track'}
+                  </span>
+                  <span className={styles.trackArtist}>
+                    {track.music?.author || 'Unknown Artist'}
+                  </span>
+                </div>
+                <button className={styles.playBtn} title={isThisTrackPlaying ? 'Pause' : 'Play track'}>
+                  {isThisTrackPlaying ? (
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  )}
+                </button>
               </div>
-              <button className={styles.playBtn} title={isThisTrackPlaying ? 'Pause' : 'Play track'}>
-                {isThisTrackPlaying ? (
-                  <svg viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-                  </svg>
-                ) : (
-                  <svg viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                )}
-              </button>
-            </div>
-          );
-        })}
-        {playlist.tracks.length > 5 && (
+            );
+          })}
+        {playlist.items.filter(i => i.type === PlaylistItemType.TRACK).length > 5 && (
           <div className={styles.more}>
-            +{playlist.tracks.length - 5} more tracks
+            +{playlist.items.filter(i => i.type === PlaylistItemType.TRACK).length - 5} more tracks
           </div>
         )}
       </div>
