@@ -20,6 +20,7 @@ input CreateMusicInput {
   """Duration in seconds"""
   duration: Int
   genre: Genre!
+  key: String
   lyrics: String
   metronome_default_enabled: Boolean
 
@@ -94,6 +95,7 @@ type Music {
   file_name: String
   file_url: String
   genre: Genre!
+  key: String
   lyrics: String
   metronome_default_enabled: Boolean
 
@@ -223,6 +225,7 @@ input UpdateMusicInput {
   """Duration in seconds"""
   duration: Int
   genre: Genre
+  key: String
   lyrics: String
   metronome_default_enabled: Boolean
 

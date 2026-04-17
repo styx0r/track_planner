@@ -84,6 +84,7 @@ interface Music {
   metronome_offset?: number;
   metronome_default_enabled?: boolean;
   time_signature?: string;
+  key?: string;
   performer?: string;
   duration?: number;
   lyrics?: string;
@@ -117,6 +118,13 @@ const PRESENTATION_TYPE_LABELS: Record<PresentationType, string> = {
 };
 
 const TIME_SIGNATURES = ['4/4', '3/4', '6/8', '2/4', '5/4', '7/8', '12/8'];
+
+const KEYS = [
+  'C-Dur', 'G-Dur', 'D-Dur', 'A-Dur', 'E-Dur', 'H-Dur', 'Fis-Dur',
+  'Des-Dur', 'As-Dur', 'Es-Dur', 'B-Dur', 'F-Dur',
+  'a-Moll', 'e-Moll', 'h-Moll', 'fis-Moll', 'cis-Moll', 'gis-Moll', 'dis-Moll',
+  'b-Moll', 'f-Moll', 'c-Moll', 'g-Moll', 'd-Moll',
+];
 
 enum Genre {
   ROCK = 'ROCK',
@@ -158,6 +166,7 @@ interface CreateMusicInput {
   metronome_offset?: number;
   metronome_default_enabled?: boolean;
   time_signature?: string;
+  key?: string;
   performer?: string;
   duration?: number;
   lyrics?: string;
@@ -189,6 +198,7 @@ interface EditMusicMetadata {
   metronome_offset?: number;
   metronome_default_enabled?: boolean;
   time_signature?: string;
+  key?: string;
   performer?: string;
   duration?: number;
 }
@@ -548,6 +558,7 @@ export default function MusicManagement() {
     presentation_type: PresentationType.A_CAPELLA,
     genre: Genre.OTHER,
     time_signature: '4/4',
+    key: '',
     metronome_default_enabled: true,
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -585,6 +596,7 @@ export default function MusicManagement() {
                 metronome_offset
                 metronome_default_enabled
                 time_signature
+                key
                 performer
                 duration
                 lyrics
@@ -727,6 +739,7 @@ export default function MusicManagement() {
         presentation_type: PresentationType.A_CAPELLA,
         genre: Genre.OTHER,
         time_signature: '4/4',
+        key: '',
         metronome_default_enabled: true,
       });
       setSelectedFile(null);
@@ -770,6 +783,7 @@ export default function MusicManagement() {
               metronome_offset: editMetadata.metronome_offset,
               metronome_default_enabled: editMetadata.metronome_default_enabled,
               time_signature: editMetadata.time_signature,
+              key: editMetadata.key || undefined,
               performer: editMetadata.performer,
               duration: editMetadata.duration,
               lyrics: editLyrics || undefined
@@ -942,6 +956,7 @@ export default function MusicManagement() {
       metronome_offset: row.metronome_offset,
       metronome_default_enabled: row.metronome_default_enabled ?? true,
       time_signature: row.time_signature || '4/4',
+      key: row.key || '',
       performer: row.performer || 'Chor',
       duration: row.duration
     });
@@ -1164,6 +1179,21 @@ export default function MusicManagement() {
               </FormControl>
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
+              <FormControl fullWidth>
+                <InputLabel>Tonart</InputLabel>
+                <Select
+                  value={uploadForm.key || ''}
+                  label="Tonart"
+                  onChange={(e) => setUploadForm({ ...uploadForm, key: e.target.value })}
+                >
+                  <MenuItem value=""><em>–</em></MenuItem>
+                  {KEYS.map((k) => (
+                    <MenuItem key={k} value={k}>{k}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 label="BPM"
@@ -1312,6 +1342,21 @@ export default function MusicManagement() {
                   >
                     {TIME_SIGNATURES.map((ts) => (
                       <MenuItem key={ts} value={ts}>{ts}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <FormControl fullWidth>
+                  <InputLabel>Tonart</InputLabel>
+                  <Select
+                    value={editMetadata.key || ''}
+                    label="Tonart"
+                    onChange={(e) => setEditMetadata((prev) => prev ? { ...prev, key: e.target.value } : prev)}
+                  >
+                    <MenuItem value=""><em>–</em></MenuItem>
+                    {KEYS.map((k) => (
+                      <MenuItem key={k} value={k}>{k}</MenuItem>
                     ))}
                   </Select>
                 </FormControl>

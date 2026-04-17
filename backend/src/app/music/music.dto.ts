@@ -112,6 +112,9 @@ export class Music {
   @Field({ nullable: true })
   time_signature?: string;
 
+  @Field({ nullable: true })
+  key?: string;
+
   @Field(() => Boolean, { nullable: true })
   metronome_default_enabled?: boolean;
 
@@ -176,6 +179,11 @@ export class CreateMusicInput {
   @IsOptional()
   @IsString()
   time_signature?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  key?: string;
 
   @Field(() => Boolean, { nullable: true })
   @IsOptional()
@@ -248,6 +256,11 @@ export class UpdateMusicInput {
   @IsOptional()
   @IsString()
   time_signature?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  key?: string;
 
   @Field(() => Boolean, { nullable: true })
   @IsOptional()
