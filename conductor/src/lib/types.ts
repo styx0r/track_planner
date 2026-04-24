@@ -62,6 +62,10 @@ export interface PlaylistTrackSummary {
   uid: string;
   title: string;
   author: string;
+  bpm?: number;
+  duration?: number;
+  time_signature?: string;
+  file_url?: string;
   sheets?: SheetMusicItem[];
 }
 

@@ -43,8 +43,17 @@ export class PlaylistTrackSummary {
   @Field(() => Int, { nullable: true })
   bpm?: number;
 
+  @Field(() => Int, { nullable: true, description: 'Duration in seconds' })
+  duration?: number;
+
   @Field({ nullable: true })
   time_signature?: string;
+
+  @Field({ nullable: true })
+  file_url?: string;
+
+  @Field({ nullable: true })
+  file_name?: string;
 
   @Field(() => Boolean, { nullable: true })
   metronome_default_enabled?: boolean;

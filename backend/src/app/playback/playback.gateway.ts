@@ -193,13 +193,8 @@ export class PlaybackGateway implements OnGatewayInit, OnGatewayConnection, OnGa
   @SubscribeMessage(WS_EVENTS.NEXT)
   async handleNext(@ConnectedSocket() client: Socket): Promise<void> {
     try {
-      // Calculate new sync time for track change
-      const scheduledTime = this.playbackService.calculateSyncedStartTime(1000);
       const state = await this.playbackService.next();
-      this.broadcastState(WS_EVENTS.PLAYBACK_TRACK_CHANGED, {
-        ...state,
-        scheduledStartTime: scheduledTime,
-      });
+      this.broadcastState(WS_EVENTS.PLAYBACK_TRACK_CHANGED, state);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`Next error: ${message}`);
@@ -213,12 +208,8 @@ export class PlaybackGateway implements OnGatewayInit, OnGatewayConnection, OnGa
   @SubscribeMessage(WS_EVENTS.PREVIOUS)
   async handlePrevious(@ConnectedSocket() client: Socket): Promise<void> {
     try {
-      const scheduledTime = this.playbackService.calculateSyncedStartTime(1000);
       const state = await this.playbackService.previous();
-      this.broadcastState(WS_EVENTS.PLAYBACK_TRACK_CHANGED, {
-        ...state,
-        scheduledStartTime: scheduledTime,
-      });
+      this.broadcastState(WS_EVENTS.PLAYBACK_TRACK_CHANGED, state);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`Previous error: ${message}`);

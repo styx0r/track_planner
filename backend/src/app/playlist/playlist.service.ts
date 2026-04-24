@@ -232,8 +232,10 @@ export class PlaylistService {
             author: doc.author,
             performer: doc.performer,
             bpm: doc.bpm,
+            duration: doc.duration,
             time_signature: doc.time_signature,
             metronome_default_enabled: doc.metronome_default_enabled,
+            file_name: doc.file_name,
             sheets: doc.sheets,
             sheet_music_name: doc.sheet_music_name
           }
@@ -254,10 +256,20 @@ export class PlaylistService {
         author: item.author,
         performer: item.performer,
         bpm: item.bpm,
+        duration: item.duration,
         time_signature: item.time_signature,
         metronome_default_enabled: coerceBool(item.metronome_default_enabled),
+        file_name: item.file_name,
         sheets: [],
       };
+
+      if (item.file_name) {
+        try {
+          summary.file_url = await this.minioService.getFileUrl(item.file_name);
+        } catch {
+          summary.file_url = undefined;
+        }
+      }
 
       if (item.sheets && item.sheets.length > 0) {
         summary.sheets = await Promise.all(

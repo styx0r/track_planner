@@ -107,16 +107,18 @@ export class PlaybackService {
 
     this.currentPlaylist = playlist;
     const items: any[] = playlist.items ?? [];
-    this.currentItemIndex = 0;
+    const firstTrackIndex = items.findIndex((item) => item.type === 'TRACK');
+    const initialItemIndex = firstTrackIndex >= 0 ? firstTrackIndex : 0;
+    this.currentItemIndex = initialItemIndex;
     this.currentState = {
       status: PlaybackStatus.IDLE,
       playlistUid,
-      currentItemIndex: 0,
+      currentItemIndex: initialItemIndex,
       playlistItems: items,
     };
 
     if (items.length > 0) {
-      await this.navigateToItem(0, false);
+      await this.navigateToItem(initialItemIndex, false);
     } else {
       this.broadcast(WS_EVENTS.PLAYBACK_STATE, this.getState());
     }
@@ -588,6 +590,7 @@ export class PlaybackService {
         currentItemIndex: itemIndex,
         currentModerationText: item.moderation_text?.text,
         currentModerationAuthor: item.moderation_text?.author,
+        currentTrackIndex: undefined,
         currentTrackUid: undefined,
         currentTrackTitle: undefined,
         currentTrackAuthor: undefined,
@@ -666,10 +669,15 @@ export class PlaybackService {
     if (!this.currentPlaylist) return this.getState();
     const items: any[] = this.currentPlaylist.items ?? [];
     const nextIdx = (this.currentItemIndex ?? -1) + 1;
-    const isActive = this.currentState.status === PlaybackStatus.PLAYING ||
-                     this.currentState.status === PlaybackStatus.COUNT_IN;
-    if (nextIdx >= items.length) return isActive ? this.stop() : this.getState();
-    return this.navigateToItem(nextIdx, isActive);
+    const hasAudioPendingOrPlaying = this.currentState.status === PlaybackStatus.PLAYING ||
+                                     this.currentState.status === PlaybackStatus.COUNT_IN ||
+                                     this.currentState.status === PlaybackStatus.LOADING ||
+                                     this.currentState.status === PlaybackStatus.PAUSED;
+    if (nextIdx >= items.length) return hasAudioPendingOrPlaying ? this.stop() : this.getState();
+    if (hasAudioPendingOrPlaying) {
+      await this.stopAudioOnly();
+    }
+    return this.navigateToItem(nextIdx, false);
   }
 
   /**
@@ -681,9 +689,14 @@ export class PlaybackService {
     }
     if (!this.currentPlaylist) return this.getState();
     const prevIdx = Math.max(0, (this.currentItemIndex ?? 0) - 1);
-    const isActive = this.currentState.status === PlaybackStatus.PLAYING ||
-                     this.currentState.status === PlaybackStatus.COUNT_IN;
-    return this.navigateToItem(prevIdx, isActive);
+    const hasAudioPendingOrPlaying = this.currentState.status === PlaybackStatus.PLAYING ||
+                                     this.currentState.status === PlaybackStatus.COUNT_IN ||
+                                     this.currentState.status === PlaybackStatus.LOADING ||
+                                     this.currentState.status === PlaybackStatus.PAUSED;
+    if (hasAudioPendingOrPlaying) {
+      await this.stopAudioOnly();
+    }
+    return this.navigateToItem(prevIdx, false);
   }
 
   /**
