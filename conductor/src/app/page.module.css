@@ -179,27 +179,74 @@
   box-shadow: none;
 }
 
-/* ── Footer (BPM, metronome, clock) ── */
+/* ── Footer (BPM, beat dots, clock) ── */
 .footer {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   align-items: center;
   background: #111827;
   border-top: 1px solid rgba(255,255,255,0.06);
-  padding: 0 16px;
-  height: 56px;
+  padding: 10px 16px;
+  min-height: 60px;
 }
 
 .bpm {
-  font-size: 15px;
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.bpmValue {
+  font-size: 28px;
   font-weight: 700;
   color: #6366f1;
+  letter-spacing: 1px;
+  line-height: 1;
+}
+
+.bpmLabel {
+  font-size: 11px;
+  color: #4f5f8f;
+  text-transform: uppercase;
   letter-spacing: 1px;
 }
 
 .metronomeWrapper {
   display: flex;
   justify-content: center;
+  align-items: center;
+}
+
+.beatDots {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.beatDot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.1);
+  border: 2px solid rgba(255,255,255,0.15);
+  transition: background 0.05s ease, box-shadow 0.05s ease;
+}
+
+.beatDot.beatAccent {
+  border-color: rgba(233,69,96,0.4);
+  background: rgba(233,69,96,0.12);
+}
+
+.beatDot.beatActive {
+  background: #e94560;
+  border-color: #e94560;
+  box-shadow: 0 0 10px rgba(233,69,96,0.7);
+}
+
+.beatDot.beatAccent.beatActive {
+  background: #ff6b81;
+  border-color: #ff6b81;
+  box-shadow: 0 0 14px rgba(255,107,129,0.8);
 }
 
 .clock {
@@ -210,7 +257,7 @@
 }
 
 .clockTime {
-  font-size: 15px;
+  font-size: 18px;
   font-weight: 700;
   color: #94a3b8;
 }

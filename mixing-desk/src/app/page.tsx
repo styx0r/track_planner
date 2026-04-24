@@ -36,12 +36,13 @@ function formatDuration(ms: number | undefined) {
 
 export default function MixingDeskPage() {
   const {
-    isConnected, isLoading, playbackState, performanceStartTime,
+    isConnected, isLoading, playbackState,
     connect, startPerformance,
   } = usePlayback();
 
   const now = useClock();
   const currentRowRef = useRef<HTMLDivElement>(null);
+  const [showResetDialog, setShowResetDialog] = useState(false);
 
   useEffect(() => { connect(); }, [connect]);
 
@@ -50,7 +51,18 @@ export default function MixingDeskPage() {
   }, [playbackState.currentItemIndex]);
 
   const { playlistItems = [], currentItemIndex = -1 } = playbackState;
+  const performanceStartTime = playbackState.performanceStartTime ?? null;
   const performanceRunning = performanceStartTime !== null;
+
+  function handleCenterClick() {
+    if (performanceRunning) setShowResetDialog(true);
+    else startPerformance();
+  }
+
+  function confirmReset() {
+    startPerformance();
+    setShowResetDialog(false);
+  }
 
   if (!isConnected && isLoading) {
     return (
@@ -70,10 +82,13 @@ export default function MixingDeskPage() {
         <div className={styles.startArea}>
           <button
             className={`${styles.startBtn} ${performanceRunning ? styles.startBtnActive : ''}`}
-            onClick={performanceRunning ? undefined : startPerformance}
+            onClick={handleCenterClick}
           >
             {performanceRunning ? '● Performance läuft' : '▶ Start Performance'}
           </button>
+          {performanceRunning && (
+            <span className={styles.resetHint}>klicken zum Zurücksetzen</span>
+          )}
         </div>
 
         <div className={styles.rightInfo}>
@@ -128,6 +143,26 @@ export default function MixingDeskPage() {
           );
         })}
       </div>
+      {/* Reset confirmation dialog */}
+      {showResetDialog && (
+        <div className={styles.dialogOverlay}>
+          <div className={styles.dialog}>
+            <div className={styles.dialogTitle}>Zeit zurücksetzen?</div>
+            <div className={styles.dialogBody}>
+              Die Performance-Zeit wird auf jetzt zurückgesetzt.<br />
+              Aktuelle Zeit: <strong>{formatElapsed(performanceStartTime!, now)}</strong>
+            </div>
+            <div className={styles.dialogActions}>
+              <button className={styles.dialogCancel} onClick={() => setShowResetDialog(false)}>
+                Abbrechen
+              </button>
+              <button className={styles.dialogConfirm} onClick={confirmReset}>
+                Zurücksetzen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

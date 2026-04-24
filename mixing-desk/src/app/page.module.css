@@ -51,12 +51,17 @@
 .startBtnActive {
   background: #334155;
   box-shadow: none;
-  cursor: default;
 }
 
 .startBtnActive:hover {
-  background: #334155;
+  background: #3d4f6b;
   transform: none;
+}
+
+.resetHint {
+  font-size: 10px;
+  color: #475569;
+  letter-spacing: 0.5px;
 }
 
 .elapsed {
@@ -160,6 +165,85 @@
   font-size: 12px;
   color: #334155;
   padding: 2px 8px;
+}
+
+/* ── Reset confirmation dialog ── */
+.dialogOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(3px);
+}
+
+.dialog {
+  background: #1e2433;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 14px;
+  padding: 28px 32px;
+  width: 380px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.dialogTitle {
+  font-size: 17px;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+.dialogBody {
+  font-size: 13px;
+  color: #94a3b8;
+  line-height: 1.6;
+}
+
+.dialogBody strong {
+  color: #22c55e;
+}
+
+.dialogActions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.dialogCancel {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  color: #94a3b8;
+  font-family: inherit;
+  font-size: 13px;
+  padding: 8px 18px;
+  transition: all 0.15s ease;
+}
+
+.dialogCancel:hover {
+  background: rgba(255,255,255,0.1);
+  color: #e2e8f0;
+}
+
+.dialogConfirm {
+  background: #ef4444;
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 18px;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 8px rgba(239,68,68,0.35);
+}
+
+.dialogConfirm:hover {
+  background: #dc2626;
 }
 
 .connecting {

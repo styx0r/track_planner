@@ -1,12 +1,11 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { usePlayback } from '../lib/usePlayback';
 import { fetchPlaylistsApi } from '../lib/useApi';
 import { Playlist, PlaybackStatus, PlaylistItemType } from '../lib/types';
 import { SheetMusicViewer } from '../components/SheetMusicViewer';
 import { WaveformProgressBar } from '../components/WaveformProgressBar';
-import { Metronome } from '../components/Metronome';
 import styles from './page.module.css';
 
 function useClock() {
@@ -32,6 +31,38 @@ function formatElapsed(startTs: number, now: number) {
     : `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
 }
 
+function BeatDots({ bpm, enabled, timeSignature, startTime }: {
+  bpm: number; enabled: boolean; timeSignature: string; startTime: number | null;
+}) {
+  const beats = parseInt(timeSignature.split('/')[0], 10) || 4;
+  const [activeBeat, setActiveBeat] = useState(-1);
+  const rafRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    if (!enabled || startTime === null) { setActiveBeat(-1); return; }
+    const interval = 60000 / bpm;
+    const tick = () => {
+      const elapsed = Date.now() - startTime;
+      setActiveBeat(elapsed >= 0 ? Math.floor(elapsed / interval) % beats : -1);
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, [enabled, startTime, bpm, beats]);
+
+  return (
+    <div className={styles.beatDots}>
+      {Array.from({ length: beats }, (_, i) => (
+        <div
+          key={i}
+          className={`${styles.beatDot} ${i === 0 ? styles.beatAccent : ''} ${i === activeBeat ? styles.beatActive : ''}`}
+        />
+      ))}
+    </div>
+  );
+}
+
 function getItemLabel(item: { type: string; music?: { title?: string }; moderation_text?: { author?: string } } | undefined): string {
   if (!item) return '';
   if (item.type === PlaylistItemType.TRACK) return item.music?.title ?? '';
@@ -42,28 +73,33 @@ function getItemLabel(item: { type: string; music?: { title?: string }; moderati
 export default function ConductorPage() {
   const {
     isConnected, isLoading, playbackState, metronomeState,
-    scheduledLocalStartTime, countInStartTime, performanceStartTime,
-    connect, play, pause, resume, stop, next, previous, toggleMetronome, setMetronomeBpm,
+    scheduledLocalStartTime,
+    connect, play, stop, next, previous, loadPlaylist,
   } = usePlayback();
 
   const now = useClock();
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [showPicker, setShowPicker] = useState(false);
+  // Track selected playlist locally so UI is immediately responsive
+  const [selectedPlaylistUid, setSelectedPlaylistUid] = useState<string | null>(null);
 
   useEffect(() => { connect(); }, [connect]);
 
   useEffect(() => {
-    if (isConnected && !playbackState.playlistUid) {
+    if (isConnected && !playbackState.playlistUid && !selectedPlaylistUid) {
       fetchPlaylistsApi().then(setPlaylists).catch(console.error);
       setShowPicker(true);
     }
-    if (playbackState.playlistUid) setShowPicker(false);
-  }, [isConnected, playbackState.playlistUid]);
+    if (playbackState.playlistUid || selectedPlaylistUid) setShowPicker(false);
+  }, [isConnected, playbackState.playlistUid, selectedPlaylistUid]);
 
   const selectPlaylist = useCallback((uid: string) => {
-    play(uid, 0, 0);
+    setSelectedPlaylistUid(uid);
+    loadPlaylist(uid); // sync backend state in background
     setShowPicker(false);
-  }, [play]);
+  }, [loadPlaylist]);
+
+  const activePlaylistUid = playbackState.playlistUid ?? selectedPlaylistUid;
 
   const { status, playlistItems = [], currentItemIndex = 0,
     currentTrackTitle, currentModerationText, currentModerationAuthor,
@@ -72,16 +108,18 @@ export default function ConductorPage() {
 
   const isModeration = status === PlaybackStatus.MODERATION;
   const isPlaying = status === PlaybackStatus.PLAYING;
-  const isPaused = status === PlaybackStatus.PAUSED;
-  const isActive = isPlaying || isPaused;
+
+  // Fall back to local playlist data for first-track display before backend responds
+  const localPlaylist = selectedPlaylistUid ? playlists.find(p => p.uid === selectedPlaylistUid) : null;
+  const localFirstTrack = localPlaylist?.items?.find(i => i.type === PlaylistItemType.TRACK);
+  const displayTitle = isModeration
+    ? `Moderation: ${currentModerationAuthor ?? ''}`
+    : (currentTrackTitle ?? localFirstTrack?.music?.title ?? '–');
+  const effectiveSheets = sheets.length > 0 ? sheets : (localFirstTrack?.music?.sheets ?? []);
+  const sheetUrl = effectiveSheets.length > 0 ? effectiveSheets[0].url : null;
 
   const prevItem = playlistItems[currentItemIndex - 1];
   const nextItem = playlistItems[currentItemIndex + 1];
-
-  const sheetUrl = sheets.length > 0 ? sheets[0].url : null;
-  const currentDisplayTitle = isModeration
-    ? `Moderation: ${currentModerationAuthor ?? ''}`
-    : (currentTrackTitle ?? '–');
 
   if (!isConnected && isLoading) {
     return (
@@ -99,20 +137,20 @@ export default function ConductorPage() {
         <button
           className={styles.navBtn}
           onClick={previous}
-          disabled={currentItemIndex === 0 || !playbackState.playlistUid}
+          disabled={currentItemIndex === 0 || !activePlaylistUid}
           title="Vorheriges"
         >
           ← <span className={styles.navLabel}>{getItemLabel(prevItem)}</span>
         </button>
 
         <div className={`${styles.currentTitle} ${isModeration ? styles.moderationBadge : ''}`}>
-          {currentDisplayTitle}
+          {displayTitle}
         </div>
 
         <button
           className={`${styles.navBtn} ${styles.navBtnRight}`}
           onClick={next}
-          disabled={currentItemIndex >= playlistItems.length - 1 && !playbackState.playlistUid}
+          disabled={!activePlaylistUid || currentItemIndex >= playlistItems.length - 1}
           title="Nächstes"
         >
           <span className={styles.navLabel}>{getItemLabel(nextItem)}</span> →
@@ -127,26 +165,20 @@ export default function ConductorPage() {
             <div className={styles.moderationText}>{currentModerationText}</div>
           </div>
         ) : (
-          <SheetMusicViewer url={sheetUrl} title={currentTrackTitle} />
+          <SheetMusicViewer url={sheetUrl} title={displayTitle} />
         )}
       </main>
 
       {/* Controls: play, waveform, stop */}
       <div className={styles.controls}>
-        {isPlaying ? (
-          <button className={`${styles.playBtn} ${styles.pauseBtn}`} onClick={pause} title="Pause">
-            ⏸
-          </button>
-        ) : (
-          <button
-            className={styles.playBtn}
-            onClick={() => isPaused ? resume() : (playbackState.playlistUid && !isModeration && play(playbackState.playlistUid, playbackState.currentTrackIndex ?? 0, 0))}
-            disabled={isModeration || !playbackState.playlistUid}
-            title="Play"
-          >
-            ▶
-          </button>
-        )}
+        <button
+          className={styles.playBtn}
+          onClick={() => activePlaylistUid && !isModeration && play(activePlaylistUid, playbackState.currentTrackIndex ?? 0, 0)}
+          disabled={isPlaying || isModeration || !activePlaylistUid}
+          title="Play"
+        >
+          ▶
+        </button>
 
         <WaveformProgressBar
           audioUrl={audioUrl ?? null}
@@ -160,37 +192,33 @@ export default function ConductorPage() {
         <button
           className={styles.stopBtn}
           onClick={stop}
-          disabled={!isActive}
+          disabled={!isPlaying}
           title="Stop"
         >
           ⏹
         </button>
       </div>
 
-      {/* Footer: BPM, metronome, clock */}
+      {/* Footer: BPM, beat indicator, clock */}
       <footer className={styles.footer}>
-        <div className={styles.bpm}>BPM {bpm}</div>
+        <div className={styles.bpm}>
+          <span className={styles.bpmValue}>{bpm}</span>
+          <span className={styles.bpmLabel}>BPM</span>
+        </div>
 
         <div className={styles.metronomeWrapper}>
-          <Metronome
-            enabled={metronomeState.enabled}
+          <BeatDots
             bpm={bpm}
-            startTime={scheduledLocalStartTime}
-            countInStartTime={countInStartTime}
-            countInBeats={playbackState.countInBeats ?? 0}
-            metronomeOffset={metronomeOffset}
+            enabled={metronomeState.enabled && isPlaying}
             timeSignature={timeSignature}
-            performanceMode={true}
-            onToggle={toggleMetronome}
-            onBpmChange={setMetronomeBpm}
-            onOffsetChange={() => {}}
+            startTime={isPlaying ? scheduledLocalStartTime : null}
           />
         </div>
 
         <div className={styles.clock}>
           <span className={styles.clockTime}>{formatClock(now)}</span>
-          {performanceStartTime && (
-            <span className={styles.elapsed}>seit {formatElapsed(performanceStartTime, now)}</span>
+          {playbackState.performanceStartTime && (
+            <span className={styles.elapsed}>seit {formatElapsed(playbackState.performanceStartTime, now)}</span>
           )}
         </div>
       </footer>

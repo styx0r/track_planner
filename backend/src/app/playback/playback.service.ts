@@ -98,6 +98,59 @@ export class PlaybackService {
   }
 
   /**
+   * Load a playlist without starting audio — sets state so all clients see the playlist
+   */
+  async loadPlaylist(playlistUid: string): Promise<PlaybackState> {
+    await this.stop();
+    const playlist = await this.playlistService.getPlaylist(playlistUid);
+    if (!playlist) throw new NotFoundException('Playlist not found');
+    this.currentPlaylist = playlist;
+
+    const items: any[] = playlist.items ?? [];
+    const firstItemIndex = 0;
+    this.currentItemIndex = firstItemIndex;
+
+    const firstTrackItem = items.find((i: any) => i.type === 'TRACK');
+    const firstTrackIndex = firstTrackItem
+      ? items.slice(0, items.indexOf(firstTrackItem) + 1).filter((i: any) => i.type === 'TRACK').length - 1
+      : 0;
+
+    let trackState: Partial<PlaybackState> = {};
+    if (firstTrackItem) {
+      try {
+        const music = await this.musicService.getMusicById(firstTrackItem.music_uid);
+        const bpm = music.bpm || this.metronomeState.bpm;
+        const effectivePerformer = firstTrackItem.performer || (music as any).performer || 'Chor';
+        trackState = {
+          currentTrackIndex: firstTrackIndex,
+          currentTrackUid: firstTrackItem.music_uid,
+          currentTrackTitle: music.title,
+          currentTrackAuthor: music.author,
+          currentTrackPerformer: effectivePerformer,
+          bpm,
+          timeSignature: (music as any).time_signature || '4/4',
+          metronomeOffset: (music as any).metronome_offset || 0,
+          sheets: (music as any).sheets || [],
+          audioUrl: music.file_url || undefined,
+          durationMs: music.duration ? music.duration * 1000 : undefined,
+        };
+      } catch {
+        // If music fetch fails, continue with empty track state
+      }
+    }
+
+    this.currentState = {
+      status: PlaybackStatus.IDLE,
+      playlistUid,
+      currentItemIndex: firstItemIndex,
+      playlistItems: items,
+      ...trackState,
+    };
+    this.broadcast(WS_EVENTS.PLAYBACK_STATE, this.getState());
+    return this.getState();
+  }
+
+  /**
    * Start playback of a playlist with optional count-in
    * @param playlistUid - UID of the playlist to play
    * @param trackIndex - Starting track index (default: 0)

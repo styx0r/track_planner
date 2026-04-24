@@ -48,6 +48,10 @@ class StartPerformanceMessage {
   // no payload required; server uses Date.now()
 }
 
+class LoadPlaylistMessage {
+  playlistUid!: string;
+}
+
 @WebSocketGateway({
   cors: {
     origin: '*', // In production, restrict to specific origins
@@ -286,6 +290,23 @@ export class PlaybackGateway implements OnGatewayInit, OnGatewayConnection, OnGa
     const performanceStartTime = this.playbackService.getPerformanceStartTime();
     if (performanceStartTime !== null) {
       client.emit(WS_EVENTS.PERFORMANCE_STARTED, { performanceStartTime });
+    }
+  }
+
+  /**
+   * Load playlist without starting audio
+   */
+  @SubscribeMessage(WS_EVENTS.LOAD_PLAYLIST)
+  async handleLoadPlaylist(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: LoadPlaylistMessage,
+  ): Promise<void> {
+    try {
+      const state = await this.playbackService.loadPlaylist(data.playlistUid);
+      this.broadcastState(WS_EVENTS.PLAYBACK_STATE, state);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      client.emit(WS_EVENTS.PLAYBACK_ERROR, { message });
     }
   }
 
