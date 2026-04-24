@@ -122,7 +122,9 @@ export function WaveformProgressBar({
     return () => { cancelled = true; };
   }, [audioUrl]);
 
-  if (!durationMs) return null;
+  if (!durationMs) {
+    return <div className={styles.placeholder} />;
+  }
 
   const bars = waveform ?? LOADING_BARS;
   const isLoading = waveform === null;

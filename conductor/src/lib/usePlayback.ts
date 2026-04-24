@@ -26,7 +26,7 @@ interface UsePlaybackReturn {
   connect: () => void;
   disconnect: () => void;
   resync: () => Promise<void>;
-  play: (playlistUid: string, trackIndex?: number, countInBeats?: number) => void;
+  play: (playlistUid: string, trackIndex?: number, countInBeats?: number) => void; // omit countInBeats → backend uses default
   pause: () => void;
   resume: () => void;
   stop: () => void;
@@ -148,8 +148,10 @@ export function usePlayback(): UsePlaybackReturn {
     if (socketRef.current?.connected) await performSync(socketRef.current);
   }, [performSync]);
 
-  const play = useCallback((playlistUid: string, trackIndex = 0, countInBeats = 0) => {
-    socketRef.current?.connected && socketRef.current.emit(WS_EVENTS.PLAY, { playlistUid, trackIndex, countInBeats });
+  const play = useCallback((playlistUid: string, trackIndex = 0, countInBeats?: number) => {
+    const payload: Record<string, unknown> = { playlistUid, trackIndex };
+    if (countInBeats !== undefined) payload.countInBeats = countInBeats;
+    socketRef.current?.connected && socketRef.current.emit(WS_EVENTS.PLAY, payload);
   }, []);
 
   const pause = useCallback(() => {

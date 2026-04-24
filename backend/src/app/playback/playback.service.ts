@@ -183,7 +183,7 @@ export class PlaybackService {
     this.currentItemIndex = this.findItemIndexForTrackIndex(playlist.items, trackIndex);
 
     const track = trackItems[trackIndex];
-    const music = await this.musicService.getMusicById(track.music_uid);
+    const music = await this.musicService.getMusicById(track.music_uid!);
 
     // Use provided countInBeats or default
     const effectiveCountInBeats = countInBeats ?? this.defaultCountInBeats;
@@ -255,7 +255,7 @@ export class PlaybackService {
     // Schedule playback to start at the exact song start time
     this.playbackTimeout = setTimeout(async () => {
       try {
-        await this.startAudioPlayback(music.file_url, music.file_name);
+        await this.startAudioPlayback(music.file_url!, music.file_name!);
       } catch (error) {
         const msg = error instanceof Error ? error.message : 'Unknown error';
         this.logger.error(`Failed to start playback: ${msg}`);
@@ -525,28 +525,83 @@ export class PlaybackService {
   }
 
   /**
-   * Navigate to a specific item by full-array index (TRACK or MODERATION_TEXT)
+   * Load track info into state without starting audio (used for browse navigation)
    */
-  async navigateToItem(itemIndex: number): Promise<PlaybackState> {
+  private async loadTrackInfo(trackIndex: number, itemIndex: number): Promise<void> {
+    const items: any[] = this.currentPlaylist?.items ?? [];
+    const trackItems = items.filter((i: any) => i.type === 'TRACK');
+    const track = trackItems[trackIndex];
+    if (!track) return;
+
+    try {
+      const music = await this.musicService.getMusicById(track.music_uid);
+      const bpm = music.bpm || this.metronomeState.bpm;
+      const effectivePerformer = track.performer || (music as any).performer || 'Chor';
+
+      this.currentItemIndex = itemIndex;
+      this.currentState = {
+        ...this.currentState,
+        status: PlaybackStatus.IDLE,
+        currentTrackIndex: trackIndex,
+        currentItemIndex: itemIndex,
+        currentTrackUid: track.music_uid,
+        currentTrackTitle: music.title,
+        currentTrackAuthor: music.author,
+        currentTrackPerformer: effectivePerformer,
+        bpm,
+        timeSignature: (music as any).time_signature || '4/4',
+        metronomeOffset: (music as any).metronome_offset || 0,
+        sheets: (music as any).sheets || [],
+        audioUrl: music.file_url || undefined,
+        durationMs: music.duration ? music.duration * 1000 : undefined,
+        scheduledStartTime: undefined,
+        countInStartTime: undefined,
+        countInBeats: undefined,
+        positionMs: undefined,
+        currentModerationText: undefined,
+        currentModerationAuthor: undefined,
+      };
+      this.metronomeState.bpm = bpm;
+      this.broadcast(WS_EVENTS.PLAYBACK_STATE, this.getState());
+      this.broadcast(WS_EVENTS.METRONOME_STATE, this.getMetronomeState());
+    } catch {
+      this.currentItemIndex = itemIndex;
+      this.currentState = { ...this.currentState, currentItemIndex: itemIndex, currentTrackIndex: trackIndex };
+      this.broadcast(WS_EVENTS.PLAYBACK_STATE, this.getState());
+    }
+  }
+
+  /**
+   * Navigate to a specific item by full-array index (TRACK or MODERATION_TEXT)
+   * When shouldPlay=false, just loads info without starting audio (browse mode)
+   */
+  async navigateToItem(itemIndex: number, shouldPlay = true): Promise<PlaybackState> {
     const items: any[] = this.currentPlaylist?.items ?? [];
     if (itemIndex < 0 || itemIndex >= items.length) {
-      return this.stop();
+      return shouldPlay ? this.stop() : this.getState();
     }
 
-    this.currentItemIndex = itemIndex;
     const item = items[itemIndex];
 
     if (item.type === 'TRACK') {
       const trackIndex = items
         .slice(0, itemIndex + 1)
         .filter((i: any) => i.type === 'TRACK').length - 1;
-      return this.play(this.currentState.playlistUid!, trackIndex, this.metronomeState.countInBeats);
+      if (shouldPlay) {
+        return this.play(this.currentState.playlistUid!, trackIndex, this.metronomeState.countInBeats);
+      } else {
+        await this.loadTrackInfo(trackIndex, itemIndex);
+        return this.getState();
+      }
     } else {
-      // MODERATION_TEXT — stop audio, show moderation info
-      await this.stopAudioOnly();
+      // MODERATION_TEXT
+      if (shouldPlay) {
+        await this.stopAudioOnly();
+      }
+      this.currentItemIndex = itemIndex;
       this.currentState = {
         ...this.currentState,
-        status: PlaybackStatus.MODERATION,
+        status: shouldPlay ? PlaybackStatus.MODERATION : PlaybackStatus.IDLE,
         currentItemIndex: itemIndex,
         currentModerationText: item.moderation_text?.text,
         currentModerationAuthor: item.moderation_text?.author,
@@ -625,8 +680,10 @@ export class PlaybackService {
     if (!this.currentPlaylist) return this.getState();
     const items: any[] = this.currentPlaylist.items ?? [];
     const nextIdx = (this.currentItemIndex ?? -1) + 1;
-    if (nextIdx >= items.length) return this.stop();
-    return this.navigateToItem(nextIdx);
+    const isActive = this.currentState.status === PlaybackStatus.PLAYING ||
+                     this.currentState.status === PlaybackStatus.COUNT_IN;
+    if (nextIdx >= items.length) return isActive ? this.stop() : this.getState();
+    return this.navigateToItem(nextIdx, isActive);
   }
 
   /**
@@ -635,7 +692,9 @@ export class PlaybackService {
   async previous(): Promise<PlaybackState> {
     if (!this.currentPlaylist) return this.getState();
     const prevIdx = Math.max(0, (this.currentItemIndex ?? 0) - 1);
-    return this.navigateToItem(prevIdx);
+    const isActive = this.currentState.status === PlaybackStatus.PLAYING ||
+                     this.currentState.status === PlaybackStatus.COUNT_IN;
+    return this.navigateToItem(prevIdx, isActive);
   }
 
   /**

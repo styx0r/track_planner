@@ -80,8 +80,10 @@ export default function ConductorPage() {
   const now = useClock();
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [showPicker, setShowPicker] = useState(false);
-  // Track selected playlist locally so UI is immediately responsive
   const [selectedPlaylistUid, setSelectedPlaylistUid] = useState<string | null>(null);
+  // Metronome ticks continuously once a playlist is loaded
+  const [idleMetronomeStart, setIdleMetronomeStart] = useState<number | null>(null);
+  const lastMetronomeBpmRef = useRef<number>(0);
 
   useEffect(() => { connect(); }, [connect]);
 
@@ -95,8 +97,13 @@ export default function ConductorPage() {
 
   const selectPlaylist = useCallback((uid: string) => {
     setSelectedPlaylistUid(uid);
-    loadPlaylist(uid); // sync backend state in background
+    loadPlaylist(uid);
     setShowPicker(false);
+    // Start idle metronome aligned to the next beat boundary (120bpm default; realigned when backend responds)
+    const beatMs = 60000 / 120;
+    const t = Date.now();
+    setIdleMetronomeStart(Math.ceil(t / beatMs) * beatMs);
+    lastMetronomeBpmRef.current = 120;
   }, [loadPlaylist]);
 
   const activePlaylistUid = playbackState.playlistUid ?? selectedPlaylistUid;
@@ -104,22 +111,39 @@ export default function ConductorPage() {
   const { status, playlistItems = [], currentItemIndex = 0,
     currentTrackTitle, currentModerationText, currentModerationAuthor,
     sheets = [], audioUrl, bpm = 120, durationMs,
-    metronomeOffset = 0, timeSignature = '4/4' } = playbackState;
+    timeSignature = '4/4' } = playbackState;
 
   const isModeration = status === PlaybackStatus.MODERATION;
   const isPlaying = status === PlaybackStatus.PLAYING;
 
-  // Fall back to local playlist data for first-track display before backend responds
+  // Realign idle metronome when actual BPM arrives from backend (or changes via navigation)
+  useEffect(() => {
+    if (!activePlaylistUid || isPlaying) return;
+    if (bpm === lastMetronomeBpmRef.current) return;
+    lastMetronomeBpmRef.current = bpm;
+    const beatMs = 60000 / bpm;
+    const t = Date.now();
+    setIdleMetronomeStart(Math.ceil(t / beatMs) * beatMs);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bpm]); // intentionally only bpm — activePlaylistUid/isPlaying checked inside
+
+  // Fall back to local playlist data for display and navigation before backend responds
   const localPlaylist = selectedPlaylistUid ? playlists.find(p => p.uid === selectedPlaylistUid) : null;
   const localFirstTrack = localPlaylist?.items?.find(i => i.type === PlaylistItemType.TRACK);
+  const effectivePlaylistItems: typeof playlistItems =
+    playlistItems.length > 0 ? playlistItems : (localPlaylist?.items ?? []);
+
   const displayTitle = isModeration
     ? `Moderation: ${currentModerationAuthor ?? ''}`
     : (currentTrackTitle ?? localFirstTrack?.music?.title ?? '–');
   const effectiveSheets = sheets.length > 0 ? sheets : (localFirstTrack?.music?.sheets ?? []);
   const sheetUrl = effectiveSheets.length > 0 ? effectiveSheets[0].url : null;
 
-  const prevItem = playlistItems[currentItemIndex - 1];
-  const nextItem = playlistItems[currentItemIndex + 1];
+  const prevItem = effectivePlaylistItems[currentItemIndex - 1];
+  const nextItem = effectivePlaylistItems[currentItemIndex + 1];
+
+  // Metronome: run from idle start when not playing, from song start when playing
+  const metronomeStartTime = isPlaying ? scheduledLocalStartTime : idleMetronomeStart;
 
   if (!isConnected && isLoading) {
     return (
@@ -150,7 +174,7 @@ export default function ConductorPage() {
         <button
           className={`${styles.navBtn} ${styles.navBtnRight}`}
           onClick={next}
-          disabled={!activePlaylistUid || currentItemIndex >= playlistItems.length - 1}
+          disabled={!activePlaylistUid || currentItemIndex >= effectivePlaylistItems.length - 1}
           title="Nächstes"
         >
           <span className={styles.navLabel}>{getItemLabel(nextItem)}</span> →
@@ -173,7 +197,7 @@ export default function ConductorPage() {
       <div className={styles.controls}>
         <button
           className={styles.playBtn}
-          onClick={() => activePlaylistUid && !isModeration && play(activePlaylistUid, playbackState.currentTrackIndex ?? 0, 0)}
+          onClick={() => activePlaylistUid && !isModeration && play(activePlaylistUid, playbackState.currentTrackIndex ?? 0)}
           disabled={isPlaying || isModeration || !activePlaylistUid}
           title="Play"
         >
@@ -209,9 +233,9 @@ export default function ConductorPage() {
         <div className={styles.metronomeWrapper}>
           <BeatDots
             bpm={bpm}
-            enabled={metronomeState.enabled && isPlaying}
+            enabled={metronomeState.enabled && !!activePlaylistUid}
             timeSignature={timeSignature}
-            startTime={isPlaying ? scheduledLocalStartTime : null}
+            startTime={metronomeStartTime}
           />
         </div>
 
