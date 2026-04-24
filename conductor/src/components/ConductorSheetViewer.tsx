@@ -6,6 +6,8 @@ import styles from './ConductorSheetViewer.module.css';
 interface Sheet {
   uid: string;
   url: string;
+  mime_type?: string;
+  file_name?: string;
 }
 
 interface ConductorSheetViewerProps {
@@ -47,16 +49,28 @@ export function ConductorSheetViewer({ sheets }: ConductorSheetViewerProps) {
     );
   }
 
+  const isImage = sheet.mime_type?.startsWith('image/') ||
+    /\.(png|jpe?g|webp|gif)(\?|#|$)/i.test(sheet.url) ||
+    /\.(png|jpe?g|webp|gif)$/i.test(sheet.file_name ?? '');
   const pdfUrl = `${sheet.url}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`;
 
   return (
     <div className={styles.root}>
-      <iframe
-        key={sheet.uid}
-        src={pdfUrl}
-        className={styles.frame}
-        title="Notenblatt"
-      />
+      {isImage ? (
+        <img
+          key={sheet.uid}
+          src={sheet.url}
+          className={styles.sheetImage}
+          alt="Notenblatt"
+        />
+      ) : (
+        <iframe
+          key={sheet.uid}
+          src={pdfUrl}
+          className={styles.frame}
+          title="Notenblatt"
+        />
+      )}
       {/* Transparent overlay: left half = prev sheet, right half = next sheet */}
       <div className={styles.clickOverlay} onClick={handleClick} />
       {sheets.length > 1 && (
