@@ -115,7 +115,7 @@ export default function ModeratorPage() {
       {/* Main: moderation text */}
       <main className={styles.main}>
         {!playbackState.playlistUid ? (
-          <div className={styles.idleHint}>Warte auf Playlist...</div>
+          <div className={styles.idleHint}>Warte auf das Mischpult...</div>
         ) : displayModerationText ? (
           <>
             {!isCurrentlyModeration && <div className={styles.nextLabel}>Nächste Moderation</div>}

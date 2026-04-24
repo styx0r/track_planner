@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { usePlayback } from '../lib/usePlayback';
-import { fetchMusicApi, fetchPlaylistsApi } from '../lib/useApi';
-import { Playlist, PlaybackStatus, PlaylistItemType, PlaylistTrackSummary } from '../lib/types';
+import { fetchMusicApi } from '../lib/useApi';
+import { PlaybackStatus, PlaylistItemType, PlaylistTrackSummary } from '../lib/types';
 import { ConductorSheetViewer } from '../components/ConductorSheetViewer';
 import { WaveformProgressBar } from '../components/WaveformProgressBar';
 import styles from './page.module.css';
@@ -74,50 +74,15 @@ export default function ConductorPage() {
   const {
     isConnected, isLoading, playbackState, metronomeState,
     scheduledLocalStartTime,
-    connect, play, stop, next, previous, loadPlaylist,
+    connect, play, stop, next, previous,
   } = usePlayback();
 
   const now = useClock();
-  const [playlists, setPlaylists] = useState<Playlist[]>([]);
-  const [showPicker, setShowPicker] = useState(false);
-  const [selectedPlaylistUid, setSelectedPlaylistUid] = useState<string | null>(null);
-  const [playlistFetchState, setPlaylistFetchState] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle');
-  const [playlistFetchError, setPlaylistFetchError] = useState<string | null>(null);
-  const [localItemIndex, setLocalItemIndex] = useState(0);
   const [localTrackDetails, setLocalTrackDetails] = useState<PlaylistTrackSummary | null>(null);
 
   useEffect(() => { connect(); }, [connect]);
 
-  useEffect(() => {
-    if (isConnected && !playbackState.playlistUid && !selectedPlaylistUid) {
-      setShowPicker(true);
-      setPlaylistFetchState('loading');
-      setPlaylistFetchError(null);
-      fetchPlaylistsApi()
-        .then((items) => {
-          setPlaylists(items);
-          setPlaylistFetchState('loaded');
-        })
-        .catch((err) => {
-          const message = err instanceof Error ? err.message : String(err);
-          console.error(err);
-          setPlaylistFetchError(message);
-          setPlaylistFetchState('error');
-        });
-    }
-    if (playbackState.playlistUid || selectedPlaylistUid) setShowPicker(false);
-  }, [isConnected, playbackState.playlistUid, selectedPlaylistUid]);
-
-  const selectPlaylist = useCallback((uid: string) => {
-    setSelectedPlaylistUid(uid);
-    const playlist = playlists.find((item) => item.uid === uid);
-    const firstTrackIndex = playlist?.items.findIndex((item) => item.type === PlaylistItemType.TRACK) ?? 0;
-    setLocalItemIndex(firstTrackIndex >= 0 ? firstTrackIndex : 0);
-    loadPlaylist(uid);
-    setShowPicker(false);
-  }, [loadPlaylist, playlists]);
-
-  const activePlaylistUid = playbackState.playlistUid ?? selectedPlaylistUid;
+  const activePlaylistUid = playbackState.playlistUid;
 
   const { status, playlistItems = [], currentItemIndex: playbackItemIndex = 0,
     currentTrackTitle, currentModerationText, currentModerationAuthor,
@@ -130,19 +95,12 @@ export default function ConductorPage() {
     status === PlaybackStatus.LOADING ||
     status === PlaybackStatus.PAUSED;
 
-  // Fall back to local playlist data for display and navigation before backend responds
-  const localPlaylist = selectedPlaylistUid ? playlists.find(p => p.uid === selectedPlaylistUid) : null;
-  const localFirstTrack = localPlaylist?.items?.find(i => i.type === PlaylistItemType.TRACK);
-  const effectivePlaylistItems: typeof playlistItems =
-    playlistItems.length > 0 ? playlistItems : (localPlaylist?.items ?? []);
-  const useLocalBrowseIndex = !!selectedPlaylistUid && !isPlaybackActive;
-  const currentItemIndex = useLocalBrowseIndex ? localItemIndex : playbackItemIndex;
+  const effectivePlaylistItems: typeof playlistItems = playlistItems;
+  const currentItemIndex = playbackItemIndex;
   const currentItem = effectivePlaylistItems[currentItemIndex];
-  const currentTrackFallback = currentItem?.type === PlaylistItemType.TRACK ? currentItem : localFirstTrack;
+  const currentTrackFallback = currentItem?.type === PlaylistItemType.TRACK ? currentItem : undefined;
   const currentModerationFallback = currentItem?.type === PlaylistItemType.MODERATION_TEXT ? currentItem : undefined;
-  const fallbackMusic = currentItem?.type === PlaylistItemType.TRACK
-    ? (localTrackDetails ?? currentTrackFallback?.music)
-    : currentTrackFallback?.music;
+  const fallbackMusic = localTrackDetails ?? currentTrackFallback?.music;
   const isModeration = status === PlaybackStatus.MODERATION || currentItem?.type === PlaylistItemType.MODERATION_TEXT;
   const effectiveBpm = bpm ?? fallbackMusic?.bpm ?? 120;
   const effectiveDurationMs = durationMs ?? (fallbackMusic?.duration ? fallbackMusic.duration * 1000 : 0);
@@ -170,19 +128,9 @@ export default function ConductorPage() {
     return () => { cancelled = true; };
   }, [currentItem]);
 
-  const goPrevious = useCallback(() => {
-    if (useLocalBrowseIndex) {
-      setLocalItemIndex((index) => Math.max(0, index - 1));
-    }
-    previous();
-  }, [previous, useLocalBrowseIndex]);
+  const goPrevious = useCallback(() => { previous(); }, [previous]);
 
-  const goNext = useCallback(() => {
-    if (useLocalBrowseIndex) {
-      setLocalItemIndex((index) => Math.min(effectivePlaylistItems.length - 1, index + 1));
-    }
-    next();
-  }, [effectivePlaylistItems.length, next, useLocalBrowseIndex]);
+  const goNext = useCallback(() => { next(); }, [next]);
 
   const displayTitle = isModeration
     ? `Moderation: ${currentModerationAuthor ?? currentModerationFallback?.moderation_text?.author ?? ''}`
@@ -200,6 +148,14 @@ export default function ConductorPage() {
       <div className={styles.connecting}>
         <div className={styles.spinner} />
         Verbinde...
+      </div>
+    );
+  }
+
+  if (!activePlaylistUid) {
+    return (
+      <div className={styles.waitingScreen}>
+        <div className={styles.waitingHint}>Warte auf das Mischpult...</div>
       </div>
     );
   }
@@ -296,38 +252,6 @@ export default function ConductorPage() {
           )}
         </div>
       </footer>
-
-      {/* Playlist picker overlay */}
-      {showPicker && (
-        <div className={styles.overlay}>
-          <div className={styles.picker}>
-            <div className={styles.pickerTitle}>Playlist auswählen</div>
-            <div className={styles.pickerList}>
-              {playlists.map(p => (
-                <button key={p.uid} className={styles.pickerItem} onClick={() => selectPlaylist(p.uid)}>
-                  {p.name}
-                  {p.description && <> — <small>{p.description}</small></>}
-                </button>
-              ))}
-              {playlistFetchState === 'loading' && playlists.length === 0 && (
-                <div style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>
-                  Playlists werden geladen...
-                </div>
-              )}
-              {playlistFetchState === 'error' && playlists.length === 0 && (
-                <div style={{ color: '#fca5a5', textAlign: 'center', padding: '20px' }}>
-                  Playlists konnten nicht geladen werden: {playlistFetchError}
-                </div>
-              )}
-              {playlistFetchState === 'loaded' && playlists.length === 0 && (
-                <div style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>
-                  Keine Playlists vorhanden
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

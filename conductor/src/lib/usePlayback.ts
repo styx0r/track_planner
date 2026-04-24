@@ -135,6 +135,10 @@ export function usePlayback(): UsePlaybackReturn {
     socket.on(WS_EVENTS.METRONOME_STATE, (state: MetronomeState) => setMetronomeState(state));
     socket.on(WS_EVENTS.PERFORMANCE_STARTED, (data: { performanceStartTime: number }) => {
       setPerformanceStartTime(data.performanceStartTime);
+      setPlaybackState((state) => ({
+        ...state,
+        performanceStartTime: data.performanceStartTime,
+      }));
     });
   }, [performSync]);
 

@@ -37,6 +37,7 @@ interface UsePlaybackReturn {
   setMetronomeBpm: (bpm: number) => void;
   setCountIn: (beats: number) => void;
   startPerformance: () => void;
+  loadPlaylist: (playlistUid: string) => void;
 }
 
 export function usePlayback(): UsePlaybackReturn {
@@ -134,6 +135,10 @@ export function usePlayback(): UsePlaybackReturn {
     socket.on(WS_EVENTS.METRONOME_STATE, (state: MetronomeState) => setMetronomeState(state));
     socket.on(WS_EVENTS.PERFORMANCE_STARTED, (data: { performanceStartTime: number }) => {
       setPerformanceStartTime(data.performanceStartTime);
+      setPlaybackState((state) => ({
+        ...state,
+        performanceStartTime: data.performanceStartTime,
+      }));
     });
   }, [performSync]);
 
@@ -191,6 +196,10 @@ export function usePlayback(): UsePlaybackReturn {
     socketRef.current?.connected && socketRef.current.emit(WS_EVENTS.START_PERFORMANCE);
   }, []);
 
+  const loadPlaylist = useCallback((playlistUid: string) => {
+    socketRef.current?.connected && socketRef.current.emit(WS_EVENTS.LOAD_PLAYLIST, { playlistUid });
+  }, []);
+
   useEffect(() => {
     return () => {
       socketRef.current?.disconnect();
@@ -223,5 +232,6 @@ export function usePlayback(): UsePlaybackReturn {
     setMetronomeBpm,
     setCountIn,
     startPerformance,
+    loadPlaylist,
   };
 }

@@ -82,10 +82,88 @@
   gap: 2px;
 }
 
+.changePlaylistBtn {
+  margin-top: 4px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 7px;
+  color: #94a3b8;
+  font-family: inherit;
+  font-size: 11px;
+  padding: 5px 10px;
+  transition: all 0.15s ease;
+}
+
+.changePlaylistBtn:hover {
+  background: rgba(255,255,255,0.12);
+  color: #e2e8f0;
+}
+
 /* ── Track list ── */
 .list {
   overflow-y: auto;
   padding: 8px 0;
+}
+
+.playlistPicker {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  max-width: 520px;
+  margin: 48px auto;
+  padding: 28px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+}
+
+.pickerTitle {
+  color: #f1f5f9;
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.pickerHint {
+  color: #64748b;
+  font-size: 13px;
+  text-align: center;
+  padding: 14px;
+}
+
+.pickerError {
+  color: #fca5a5;
+  font-size: 13px;
+  text-align: center;
+  padding: 14px;
+}
+
+.playlistButton {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  color: #e2e8f0;
+  font-family: inherit;
+  font-size: 15px;
+  padding: 14px 16px;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.playlistButton:hover {
+  background: rgba(99,102,241,0.16);
+  border-color: rgba(99,102,241,0.45);
+}
+
+.playlistButton small {
+  color: #64748b;
+  font-size: 12px;
 }
 
 .row {

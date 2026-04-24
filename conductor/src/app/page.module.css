@@ -334,6 +334,20 @@
   gap: 12px;
 }
 
+.waitingScreen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background: #0f0f1a;
+}
+
+.waitingHint {
+  color: #64748b;
+  font-size: 18px;
+  letter-spacing: 0.5px;
+}
+
 .spinner {
   width: 20px;
   height: 20px;

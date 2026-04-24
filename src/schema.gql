@@ -172,6 +172,11 @@ enum PlaylistItemType {
 type PlaylistTrackSummary {
   author: String!
   bpm: Int
+
+  """Duration in seconds"""
+  duration: Int
+  file_name: String
+  file_url: String
   metronome_default_enabled: Boolean
   performer: String
   sheets: [SheetMusic!]
