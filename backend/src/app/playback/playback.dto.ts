@@ -11,6 +11,7 @@ export enum PlaybackStatus {
   PAUSED = 'paused',
   LOADING = 'loading',
   COUNT_IN = 'count_in', // During count-in phase before song starts
+  MODERATION = 'moderation', // Current item is a moderation text (no audio)
 }
 
 @ObjectType()
@@ -65,6 +66,13 @@ export class PlaybackState {
 
   @Field({ nullable: true })
   audioUrl?: string; // Direct URL to the audio file (for waveform generation)
+
+  // Full-items navigation (not a GraphQL field — WS-only)
+  currentItemIndex?: number;
+  currentModerationText?: string;
+  currentModerationAuthor?: string;
+  playlistItems?: any[]; // Full hydrated playlist items broadcast on playlist load
+  performanceStartTime?: number; // Server timestamp set by mixing desk
 }
 
 /**
@@ -123,6 +131,8 @@ export const WS_EVENTS = {
   METRONOME_TOGGLE: 'metronome:toggle',
   METRONOME_SET_BPM: 'metronome:setBpm',
   METRONOME_SET_COUNT_IN: 'metronome:setCountIn',
+  START_PERFORMANCE: 'performance:start',
+  GET_STATE: 'playback:getState',
 
   // Server -> Client
   TIME_SYNC_RESPONSE: 'time:sync:response',
@@ -133,4 +143,5 @@ export const WS_EVENTS = {
   PLAYBACK_ERROR: 'playback:error',
   PLAYBACK_TRACK_CHANGED: 'playback:trackChanged',
   METRONOME_STATE: 'metronome:state',
+  PERFORMANCE_STARTED: 'performance:started',
 } as const;

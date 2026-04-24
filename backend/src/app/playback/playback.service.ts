@@ -35,6 +35,12 @@ export class PlaybackService {
   private tempFilePath: string | null = null;
   private playbackTimeout: NodeJS.Timeout | null = null;
 
+  // Full-items navigation tracking
+  private currentItemIndex: number | undefined = undefined;
+
+  // Performance start time (set by mixing desk, persists across tracks)
+  private performanceStartTime: number | null = null;
+
   // Broadcast callback set by the gateway after WebSocket server is ready
   private broadcastFn: ((event: string, data: any) => void) | null = null;
 
@@ -57,7 +63,22 @@ export class PlaybackService {
    * Get current playback state
    */
   getState(): PlaybackState {
-    return { ...this.currentState };
+    return {
+      ...this.currentState,
+      performanceStartTime: this.performanceStartTime ?? undefined,
+    };
+  }
+
+  /**
+   * Start the performance clock (called by mixing desk)
+   */
+  startPerformance(): void {
+    this.performanceStartTime = Date.now();
+    this.broadcast(WS_EVENTS.PERFORMANCE_STARTED, { performanceStartTime: this.performanceStartTime });
+  }
+
+  getPerformanceStartTime(): number | null {
+    return this.performanceStartTime;
   }
 
   /**
@@ -105,6 +126,9 @@ export class PlaybackService {
       trackIndex = 0;
     }
 
+    // Track position in full items array for all-client navigation
+    this.currentItemIndex = this.findItemIndexForTrackIndex(playlist.items, trackIndex);
+
     const track = trackItems[trackIndex];
     const music = await this.musicService.getMusicById(track.music_uid);
 
@@ -145,6 +169,8 @@ export class PlaybackService {
       status: effectiveCountInBeats > 0 ? PlaybackStatus.COUNT_IN : PlaybackStatus.LOADING,
       playlistUid,
       currentTrackIndex: trackIndex,
+      currentItemIndex: this.currentItemIndex,
+      playlistItems: playlist.items,
       currentTrackUid: track.music_uid,
       currentTrackTitle: music.title,
       currentTrackAuthor: music.author,
@@ -421,8 +447,85 @@ export class PlaybackService {
     };
     this.playbackStartTime = null;
     this.currentPlaylist = null;
+    this.currentItemIndex = undefined;
 
     return this.getState();
+  }
+
+  /**
+   * Stop audio only — keeps playlist and state intact for moderation navigation
+   */
+  private async stopAudioOnly(): Promise<void> {
+    if (this.playbackTimeout) {
+      clearTimeout(this.playbackTimeout);
+      this.playbackTimeout = null;
+    }
+    if (this.playerProcess) {
+      this.playerProcess.kill('SIGTERM');
+      this.playerProcess = null;
+    }
+    if (this.tempFilePath && fs.existsSync(this.tempFilePath)) {
+      try { fs.unlinkSync(this.tempFilePath); } catch {}
+      this.tempFilePath = null;
+    }
+    this.playbackStartTime = null;
+  }
+
+  /**
+   * Navigate to a specific item by full-array index (TRACK or MODERATION_TEXT)
+   */
+  async navigateToItem(itemIndex: number): Promise<PlaybackState> {
+    const items: any[] = this.currentPlaylist?.items ?? [];
+    if (itemIndex < 0 || itemIndex >= items.length) {
+      return this.stop();
+    }
+
+    this.currentItemIndex = itemIndex;
+    const item = items[itemIndex];
+
+    if (item.type === 'TRACK') {
+      const trackIndex = items
+        .slice(0, itemIndex + 1)
+        .filter((i: any) => i.type === 'TRACK').length - 1;
+      return this.play(this.currentState.playlistUid!, trackIndex, this.metronomeState.countInBeats);
+    } else {
+      // MODERATION_TEXT — stop audio, show moderation info
+      await this.stopAudioOnly();
+      this.currentState = {
+        ...this.currentState,
+        status: PlaybackStatus.MODERATION,
+        currentItemIndex: itemIndex,
+        currentModerationText: item.moderation_text?.text,
+        currentModerationAuthor: item.moderation_text?.author,
+        currentTrackUid: undefined,
+        currentTrackTitle: undefined,
+        currentTrackAuthor: undefined,
+        currentTrackPerformer: undefined,
+        sheets: undefined,
+        audioUrl: undefined,
+        durationMs: undefined,
+        positionMs: undefined,
+        scheduledStartTime: undefined,
+        countInStartTime: undefined,
+        countInBeats: undefined,
+      };
+      this.broadcast(WS_EVENTS.PLAYBACK_STATE, this.getState());
+      return this.getState();
+    }
+  }
+
+  /**
+   * Find the full-items index for a given track-only index
+   */
+  private findItemIndexForTrackIndex(items: any[], trackIndex: number): number {
+    let count = 0;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type === 'TRACK') {
+        if (count === trackIndex) return i;
+        count++;
+      }
+    }
+    return trackIndex; // fallback
   }
 
   /**
@@ -463,32 +566,23 @@ export class PlaybackService {
   }
 
   /**
-   * Skip to next track
+   * Skip to next item (TRACK or MODERATION_TEXT)
    */
   async next(): Promise<PlaybackState> {
-    if (!this.currentPlaylist || this.currentState.currentTrackIndex === undefined) {
-      return this.getState();
-    }
-
-    const nextIndex = this.currentState.currentTrackIndex + 1;
-    const trackCount = (this.currentPlaylist.items ?? []).filter((i: any) => i.type === 'TRACK').length;
-    if (nextIndex >= trackCount) {
-      return this.stop();
-    }
-
-    return this.play(this.currentState.playlistUid!, nextIndex, this.metronomeState.countInBeats);
+    if (!this.currentPlaylist) return this.getState();
+    const items: any[] = this.currentPlaylist.items ?? [];
+    const nextIdx = (this.currentItemIndex ?? -1) + 1;
+    if (nextIdx >= items.length) return this.stop();
+    return this.navigateToItem(nextIdx);
   }
 
   /**
-   * Go to previous track
+   * Go to previous item (TRACK or MODERATION_TEXT)
    */
   async previous(): Promise<PlaybackState> {
-    if (!this.currentPlaylist || this.currentState.currentTrackIndex === undefined) {
-      return this.getState();
-    }
-
-    const prevIndex = Math.max(0, this.currentState.currentTrackIndex - 1);
-    return this.play(this.currentState.playlistUid!, prevIndex, this.metronomeState.countInBeats);
+    if (!this.currentPlaylist) return this.getState();
+    const prevIdx = Math.max(0, (this.currentItemIndex ?? 0) - 1);
+    return this.navigateToItem(prevIdx);
   }
 
   /**

@@ -44,6 +44,10 @@ class SeekMessage {
   positionMs!: number;
 }
 
+class StartPerformanceMessage {
+  // no payload required; server uses Date.now()
+}
+
 @WebSocketGateway({
   cors: {
     origin: '*', // In production, restrict to specific origins
@@ -74,6 +78,10 @@ export class PlaybackGateway implements OnGatewayInit, OnGatewayConnection, OnGa
     // Send current playback state to newly connected client
     client.emit(WS_EVENTS.PLAYBACK_STATE, this.playbackService.getState());
     client.emit(WS_EVENTS.METRONOME_STATE, this.playbackService.getMetronomeState());
+    const performanceStartTime = this.playbackService.getPerformanceStartTime();
+    if (performanceStartTime !== null) {
+      client.emit(WS_EVENTS.PERFORMANCE_STARTED, { performanceStartTime });
+    }
   }
 
   /**
@@ -271,10 +279,25 @@ export class PlaybackGateway implements OnGatewayInit, OnGatewayConnection, OnGa
   /**
    * Request current state
    */
-  @SubscribeMessage('playback:getState')
+  @SubscribeMessage(WS_EVENTS.GET_STATE)
   handleGetState(@ConnectedSocket() client: Socket): void {
     client.emit(WS_EVENTS.PLAYBACK_STATE, this.playbackService.getState());
     client.emit(WS_EVENTS.METRONOME_STATE, this.playbackService.getMetronomeState());
+    const performanceStartTime = this.playbackService.getPerformanceStartTime();
+    if (performanceStartTime !== null) {
+      client.emit(WS_EVENTS.PERFORMANCE_STARTED, { performanceStartTime });
+    }
+  }
+
+  /**
+   * Start performance clock (called by mixing desk)
+   */
+  @SubscribeMessage(WS_EVENTS.START_PERFORMANCE)
+  handleStartPerformance(
+    @ConnectedSocket() _client: Socket,
+    @MessageBody() _data: StartPerformanceMessage,
+  ): void {
+    this.playbackService.startPerformance();
   }
 
   /**

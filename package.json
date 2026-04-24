@@ -4,8 +4,13 @@
   "license": "MIT",
   "scripts": {
     "start:backend": "nx build @track-planner/backend && node backend/dist/main.js",
-    "start:client": "nx build @track-planner/client && npx serve client/out -l 3001",
-    "start:backoffice": "nx start @track-planner/backoffice"
+    "start:rehearsal": "nx build @track-planner/rehearsal && npx serve rehearsal/out -l 3001",
+    "start:conductor": "nx build @track-planner/conductor && npx serve conductor/out -l 3002",
+    "start:moderator": "nx build @track-planner/moderator && npx serve moderator/out -l 3003",
+    "start:mixing-desk": "nx build @track-planner/mixing-desk && npx serve mixing-desk/out -l 3004",
+    "start:backoffice": "nx start @track-planner/backoffice",
+    "dev:all": "concurrently -n backend,rehearsal,conductor,moderator,mixing-desk,backoffice -c blue,green,cyan,yellow,magenta,white \"npm run start:backend\" \"nx dev @track-planner/rehearsal --port 3001\" \"nx dev @track-planner/conductor --port 3002\" \"nx dev @track-planner/moderator --port 3003\" \"nx dev @track-planner/mixing-desk --port 3004\" \"nx dev @track-planner/backoffice\"",
+    "start:all": "concurrently -n backend,rehearsal,conductor,moderator,mixing-desk,backoffice -c blue,green,cyan,yellow,magenta,white \"npm run start:backend\" \"npm run start:rehearsal\" \"npm run start:conductor\" \"npm run start:moderator\" \"npm run start:mixing-desk\" \"npm run start:backoffice\""
   },
   "private": true,
   "devDependencies": {
@@ -36,6 +41,7 @@
     "@types/react-dom": "19.0.0",
     "@types/uuid": "^9.0.0",
     "@typescript-eslint/eslint-plugin": "^8.38.0",
+    "concurrently": "^9.2.1",
     "core-js": "^3.36.1",
     "eslint": "~8.57.0",
     "nx": "21.3.10",
@@ -50,7 +56,10 @@
     "packages/*",
     "backend",
     "backend-e2e",
-    "client",
+    "rehearsal",
+    "conductor",
+    "moderator",
+    "mixing-desk",
     "backoffice",
     "shared-ui"
   ],
@@ -77,15 +86,15 @@
     "graphql-request": "^7.4.0",
     "graphql-upload": "^16.0.2",
     "minio": "^8.0.1",
-    "mupdf": "^1.27.0",
-    "sharp": "^0.33.5",
     "multer": "^1.4.5-lts.1",
+    "mupdf": "^1.27.0",
     "music-metadata-browser": "^2.5.11",
     "next": "~15.2.4",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.0",
+    "sharp": "^0.33.5",
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
     "uuid": "^11.0.3"

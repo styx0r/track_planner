@@ -10,13 +10,22 @@
       "path": "./backend"
     },
     {
-      "path": "./client"
-    },
-    {
       "path": "./backoffice"
     },
     {
       "path": "./shared-ui"
+    },
+    {
+      "path": "./mixing-desk"
+    },
+    {
+      "path": "./conductor"
+    },
+    {
+      "path": "./moderator"
+    },
+    {
+      "path": "./rehearsal"
     }
   ]
 }
