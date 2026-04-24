@@ -98,55 +98,29 @@ export class PlaybackService {
   }
 
   /**
-   * Load a playlist without starting audio — sets state so all clients see the playlist
+   * Load a playlist without starting audio — navigates to first item in browse mode
    */
   async loadPlaylist(playlistUid: string): Promise<PlaybackState> {
     await this.stop();
     const playlist = await this.playlistService.getPlaylist(playlistUid);
     if (!playlist) throw new NotFoundException('Playlist not found');
+
     this.currentPlaylist = playlist;
-
     const items: any[] = playlist.items ?? [];
-    const firstItemIndex = 0;
-    this.currentItemIndex = firstItemIndex;
-
-    const firstTrackItem = items.find((i: any) => i.type === 'TRACK');
-    const firstTrackIndex = firstTrackItem
-      ? items.slice(0, items.indexOf(firstTrackItem) + 1).filter((i: any) => i.type === 'TRACK').length - 1
-      : 0;
-
-    let trackState: Partial<PlaybackState> = {};
-    if (firstTrackItem) {
-      try {
-        const music = await this.musicService.getMusicById(firstTrackItem.music_uid);
-        const bpm = music.bpm || this.metronomeState.bpm;
-        const effectivePerformer = firstTrackItem.performer || (music as any).performer || 'Chor';
-        trackState = {
-          currentTrackIndex: firstTrackIndex,
-          currentTrackUid: firstTrackItem.music_uid,
-          currentTrackTitle: music.title,
-          currentTrackAuthor: music.author,
-          currentTrackPerformer: effectivePerformer,
-          bpm,
-          timeSignature: (music as any).time_signature || '4/4',
-          metronomeOffset: (music as any).metronome_offset || 0,
-          sheets: (music as any).sheets || [],
-          audioUrl: music.file_url || undefined,
-          durationMs: music.duration ? music.duration * 1000 : undefined,
-        };
-      } catch {
-        // If music fetch fails, continue with empty track state
-      }
-    }
-
+    this.currentItemIndex = 0;
     this.currentState = {
       status: PlaybackStatus.IDLE,
       playlistUid,
-      currentItemIndex: firstItemIndex,
+      currentItemIndex: 0,
       playlistItems: items,
-      ...trackState,
     };
-    this.broadcast(WS_EVENTS.PLAYBACK_STATE, this.getState());
+
+    if (items.length > 0) {
+      await this.navigateToItem(0, false);
+    } else {
+      this.broadcast(WS_EVENTS.PLAYBACK_STATE, this.getState());
+    }
+
     return this.getState();
   }
 
@@ -531,12 +505,19 @@ export class PlaybackService {
     const items: any[] = this.currentPlaylist?.items ?? [];
     const trackItems = items.filter((i: any) => i.type === 'TRACK');
     const track = trackItems[trackIndex];
-    if (!track) return;
+    if (!track) {
+      this.logger.warn(`loadTrackInfo: no track at trackIndex=${trackIndex} (${trackItems.length} tracks total)`);
+      return;
+    }
+
+    this.logger.log(`loadTrackInfo: loading track ${trackIndex} (item ${itemIndex}), music_uid=${track.music_uid}`);
 
     try {
       const music = await this.musicService.getMusicById(track.music_uid);
       const bpm = music.bpm || this.metronomeState.bpm;
       const effectivePerformer = track.performer || (music as any).performer || 'Chor';
+
+      this.logger.log(`loadTrackInfo: loaded "${music.title}", bpm=${bpm}, timeSignature=${(music as any).time_signature}, duration=${music.duration}, sheets=${((music as any).sheets || []).length}`);
 
       this.currentItemIndex = itemIndex;
       this.currentState = {
@@ -564,7 +545,9 @@ export class PlaybackService {
       this.metronomeState.bpm = bpm;
       this.broadcast(WS_EVENTS.PLAYBACK_STATE, this.getState());
       this.broadcast(WS_EVENTS.METRONOME_STATE, this.getMetronomeState());
-    } catch {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.error(`loadTrackInfo: failed to load music for track ${trackIndex}: ${msg}`);
       this.currentItemIndex = itemIndex;
       this.currentState = { ...this.currentState, currentItemIndex: itemIndex, currentTrackIndex: trackIndex };
       this.broadcast(WS_EVENTS.PLAYBACK_STATE, this.getState());
@@ -677,6 +660,9 @@ export class PlaybackService {
    * Skip to next item (TRACK or MODERATION_TEXT)
    */
   async next(): Promise<PlaybackState> {
+    if (!this.currentPlaylist && this.currentState.playlistUid) {
+      await this.loadPlaylist(this.currentState.playlistUid);
+    }
     if (!this.currentPlaylist) return this.getState();
     const items: any[] = this.currentPlaylist.items ?? [];
     const nextIdx = (this.currentItemIndex ?? -1) + 1;
@@ -690,6 +676,9 @@ export class PlaybackService {
    * Go to previous item (TRACK or MODERATION_TEXT)
    */
   async previous(): Promise<PlaybackState> {
+    if (!this.currentPlaylist && this.currentState.playlistUid) {
+      await this.loadPlaylist(this.currentState.playlistUid);
+    }
     if (!this.currentPlaylist) return this.getState();
     const prevIdx = Math.max(0, (this.currentItemIndex ?? 0) - 1);
     const isActive = this.currentState.status === PlaybackStatus.PLAYING ||

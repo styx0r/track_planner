@@ -52,7 +52,7 @@ export function WaveformProgressBar({
       rafRef.current = null;
     }
 
-    if (!isPlaying || scheduledLocalStartTime === null || !durationMs) return;
+    if (!isPlaying || scheduledLocalStartTime === null || !durationMs || durationMs <= 0) return;
 
     const tick = () => {
       const elapsed = Date.now() - scheduledLocalStartTime;
@@ -122,19 +122,21 @@ export function WaveformProgressBar({
     return () => { cancelled = true; };
   }, [audioUrl]);
 
-  if (!durationMs) {
+  // Show placeholder only when no track is loaded at all
+  if (!audioUrl && !durationMs) {
     return <div className={styles.placeholder} />;
   }
 
   const bars = waveform ?? LOADING_BARS;
   const isLoading = waveform === null;
-  const currentMs = progress * durationMs;
+  const effectiveDuration = durationMs || 0;
+  const currentMs = progress * effectiveDuration;
 
   const handleWaveformClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!onSeek) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const ratio = (e.clientX - rect.left) / rect.width;
-    onSeek(Math.max(0, Math.min(1, ratio)) * durationMs);
+    onSeek(Math.max(0, Math.min(1, ratio)) * effectiveDuration);
   };
 
   return (
@@ -151,10 +153,12 @@ export function WaveformProgressBar({
           />
         ))}
       </div>
-      <div className={styles.times}>
-        <span>{formatMs(currentMs)}</span>
-        <span>{formatMs(durationMs)}</span>
-      </div>
+      {effectiveDuration > 0 && (
+        <div className={styles.times}>
+          <span>{formatMs(currentMs)}</span>
+          <span>{formatMs(effectiveDuration)}</span>
+        </div>
+      )}
     </div>
   );
 }

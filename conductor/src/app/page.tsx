@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { usePlayback } from '../lib/usePlayback';
 import { fetchPlaylistsApi } from '../lib/useApi';
 import { Playlist, PlaybackStatus, PlaylistItemType } from '../lib/types';
-import { SheetMusicViewer } from '../components/SheetMusicViewer';
+import { ConductorSheetViewer } from '../components/ConductorSheetViewer';
 import { WaveformProgressBar } from '../components/WaveformProgressBar';
 import styles from './page.module.css';
 
@@ -81,9 +81,6 @@ export default function ConductorPage() {
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [showPicker, setShowPicker] = useState(false);
   const [selectedPlaylistUid, setSelectedPlaylistUid] = useState<string | null>(null);
-  // Metronome ticks continuously once a playlist is loaded
-  const [idleMetronomeStart, setIdleMetronomeStart] = useState<number | null>(null);
-  const lastMetronomeBpmRef = useRef<number>(0);
 
   useEffect(() => { connect(); }, [connect]);
 
@@ -99,11 +96,6 @@ export default function ConductorPage() {
     setSelectedPlaylistUid(uid);
     loadPlaylist(uid);
     setShowPicker(false);
-    // Start idle metronome aligned to the next beat boundary (120bpm default; realigned when backend responds)
-    const beatMs = 60000 / 120;
-    const t = Date.now();
-    setIdleMetronomeStart(Math.ceil(t / beatMs) * beatMs);
-    lastMetronomeBpmRef.current = 120;
   }, [loadPlaylist]);
 
   const activePlaylistUid = playbackState.playlistUid ?? selectedPlaylistUid;
@@ -116,17 +108,6 @@ export default function ConductorPage() {
   const isModeration = status === PlaybackStatus.MODERATION;
   const isPlaying = status === PlaybackStatus.PLAYING;
 
-  // Realign idle metronome when actual BPM arrives from backend (or changes via navigation)
-  useEffect(() => {
-    if (!activePlaylistUid || isPlaying) return;
-    if (bpm === lastMetronomeBpmRef.current) return;
-    lastMetronomeBpmRef.current = bpm;
-    const beatMs = 60000 / bpm;
-    const t = Date.now();
-    setIdleMetronomeStart(Math.ceil(t / beatMs) * beatMs);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bpm]); // intentionally only bpm — activePlaylistUid/isPlaying checked inside
-
   // Fall back to local playlist data for display and navigation before backend responds
   const localPlaylist = selectedPlaylistUid ? playlists.find(p => p.uid === selectedPlaylistUid) : null;
   const localFirstTrack = localPlaylist?.items?.find(i => i.type === PlaylistItemType.TRACK);
@@ -137,13 +118,10 @@ export default function ConductorPage() {
     ? `Moderation: ${currentModerationAuthor ?? ''}`
     : (currentTrackTitle ?? localFirstTrack?.music?.title ?? '–');
   const effectiveSheets = sheets.length > 0 ? sheets : (localFirstTrack?.music?.sheets ?? []);
-  const sheetUrl = effectiveSheets.length > 0 ? effectiveSheets[0].url : null;
 
   const prevItem = effectivePlaylistItems[currentItemIndex - 1];
   const nextItem = effectivePlaylistItems[currentItemIndex + 1];
 
-  // Metronome: run from idle start when not playing, from song start when playing
-  const metronomeStartTime = isPlaying ? scheduledLocalStartTime : idleMetronomeStart;
 
   if (!isConnected && isLoading) {
     return (
@@ -189,7 +167,7 @@ export default function ConductorPage() {
             <div className={styles.moderationText}>{currentModerationText}</div>
           </div>
         ) : (
-          <SheetMusicViewer url={sheetUrl} title={displayTitle} />
+          <ConductorSheetViewer sheets={effectiveSheets} />
         )}
       </main>
 
@@ -197,7 +175,7 @@ export default function ConductorPage() {
       <div className={styles.controls}>
         <button
           className={styles.playBtn}
-          onClick={() => activePlaylistUid && !isModeration && play(activePlaylistUid, playbackState.currentTrackIndex ?? 0)}
+          onClick={() => activePlaylistUid && !isModeration && play(activePlaylistUid, playbackState.currentTrackIndex ?? 0, 0)}
           disabled={isPlaying || isModeration || !activePlaylistUid}
           title="Play"
         >
@@ -233,16 +211,16 @@ export default function ConductorPage() {
         <div className={styles.metronomeWrapper}>
           <BeatDots
             bpm={bpm}
-            enabled={metronomeState.enabled && !!activePlaylistUid}
+            enabled={metronomeState.enabled && isPlaying}
             timeSignature={timeSignature}
-            startTime={metronomeStartTime}
+            startTime={isPlaying ? scheduledLocalStartTime : null}
           />
         </div>
 
         <div className={styles.clock}>
-          <span className={styles.clockTime}>{formatClock(now)}</span>
+          <span className={styles.clockTime} suppressHydrationWarning>{formatClock(now)}</span>
           {playbackState.performanceStartTime && (
-            <span className={styles.elapsed}>seit {formatElapsed(playbackState.performanceStartTime, now)}</span>
+            <span className={styles.elapsed} suppressHydrationWarning>seit {formatElapsed(playbackState.performanceStartTime, now)}</span>
           )}
         </div>
       </footer>
