@@ -1,0 +1,51 @@
+{
+  "name": "track-planner",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "workspace",
+  "workspaceFolder": "/workspaces/track_planner",
+  "features": {
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
+  },
+  "forwardPorts": [
+    3000,
+    3001,
+    3002,
+    3003,
+    3004,
+    3333,
+    8529,
+    9000
+  ],
+  "portsAttributes": {
+    "3000": { "label": "Backoffice (Next.js)" },
+    "3001": { "label": "Rehearsal (Next.js)" },
+    "3002": { "label": "Conductor (Next.js)" },
+    "3003": { "label": "Moderator (Next.js)" },
+    "3004": { "label": "Mixing Desk (Next.js)" },
+    "3333": { "label": "NestJS Backend" },
+    "8529": { "label": "ArangoDB" },
+    "9000": { "label": "MinIO" }
+  },
+  "otherPortsAttributes": {
+    "onAutoForward": "ignore"
+  },
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "postStartCommand": "bash .devcontainer/post-start.sh",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "anthropic.claude-code",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "nrwl.angular-console",
+        "bradlc.vscode-tailwindcss",
+        "ms-azuretools.vscode-docker"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+      }
+    }
+  }
+}

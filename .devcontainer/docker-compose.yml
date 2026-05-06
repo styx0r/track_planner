@@ -1,0 +1,27 @@
+include:
+  - ../deployment/docker-compose.yml
+
+services:
+  workspace:
+    image: mcr.microsoft.com/devcontainers/javascript-node:20-bookworm
+    volumes:
+      - ..:/workspaces/track_planner:cached
+    command: sleep infinity
+    environment:
+      _ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      BACKEND_URL: http://localhost:3333
+      NEXT_PUBLIC_BACKEND_URL: http://localhost:3333
+      ARANGO_URL: http://arangodb:8529
+      ARANGO_DATABASE: track_planner
+      ARANGO_USER: root
+      ARANGO_PASSWORD: track_planner
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: "9000"
+      MINIO_USE_SSL: "false"
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET_NAME: music-files
+      NX_SKIP_NX_CACHE: "true"
+    depends_on:
+      - arangodb
+      - minio
