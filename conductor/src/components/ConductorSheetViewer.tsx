@@ -25,18 +25,43 @@ export function ConductorSheetViewer({ sheets }: ConductorSheetViewerProps) {
   const clampedIndex = Math.min(index, Math.max(0, sheets.length - 1));
   const sheet = sheets[clampedIndex];
 
+  const goPreviousSheet = useCallback(() => {
+    setIndex(i => Math.max(0, i - 1));
+  }, []);
+
+  const goNextSheet = useCallback(() => {
+    setIndex(i => Math.min(sheets.length - 1, i + 1));
+  }, [sheets.length]);
+
   const handleClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       const rect = e.currentTarget.getBoundingClientRect();
       const isLeft = e.clientX - rect.left < rect.width / 2;
       if (isLeft) {
-        setIndex(i => Math.max(0, i - 1));
+        goPreviousSheet();
       } else {
-        setIndex(i => Math.min(sheets.length - 1, i + 1));
+        goNextSheet();
       }
     },
-    [sheets.length],
+    [goNextSheet, goPreviousSheet],
   );
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (sheets.length <= 1 || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        goPreviousSheet();
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        goNextSheet();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [goNextSheet, goPreviousSheet, sheets.length]);
 
   if (!sheet) {
     return (

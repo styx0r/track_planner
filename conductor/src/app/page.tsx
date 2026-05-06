@@ -132,6 +132,24 @@ export default function ConductorPage() {
 
   const goNext = useCallback(() => { next(); }, [next]);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || !activePlaylistUid) return;
+
+      const key = e.key.toLowerCase();
+      if (key === 'a' && currentItemIndex > 0) {
+        e.preventDefault();
+        goPrevious();
+      } else if (key === 'l' && currentItemIndex < effectivePlaylistItems.length - 1) {
+        e.preventDefault();
+        goNext();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activePlaylistUid, currentItemIndex, effectivePlaylistItems.length, goNext, goPrevious]);
+
   const displayTitle = isModeration
     ? `Moderation: ${currentModerationAuthor ?? currentModerationFallback?.moderation_text?.author ?? ''}`
     : (currentTrackTitle ?? fallbackMusic?.title ?? '–');
