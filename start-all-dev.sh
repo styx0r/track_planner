@@ -38,9 +38,13 @@ export MINIO_BUCKET_NAME="music-files"
 export NX_SKIP_NX_CACHE="true"
 
 echo "Waiting for ArangoDB at ${ARANGO_URL}..."
-for _ in {1..30}; do
-  if curl -fsS "${ARANGO_URL}/_api/version" >/dev/null 2>&1; then
+for attempt in {1..30}; do
+  if curl -fsS -u "${ARANGO_ROOT_USER}:${ARANGO_ROOT_PASSWORD}" "${ARANGO_URL}/_api/version" >/dev/null 2>&1; then
     break
+  fi
+  if [[ "${attempt}" == "30" ]]; then
+    echo "ArangoDB did not become reachable at ${ARANGO_URL}."
+    exit 1
   fi
   sleep 1
 done
