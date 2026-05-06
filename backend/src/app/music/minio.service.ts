@@ -30,22 +30,53 @@ const PDF_RENDER_SCALE = 2;
 export class MinioService {
   private readonly logger = new Logger(MinioService.name);
   private minioClient: MinioClient;
+  private publicMinioClient: MinioClient;
   private bucketName: string;
 
   constructor(private configService: ConfigService) {
+    const accessKey = this.configService.get<string>(
+      'MINIO_ACCESS_KEY',
+      'minioadmin'
+    );
+    const secretKey = this.configService.get<string>(
+      'MINIO_SECRET_KEY',
+      'minioadmin'
+    );
+    const useSSL =
+      this.configService.get<string>('MINIO_USE_SSL', 'false') === 'true';
+    const region = this.configService.get<string>(
+      'MINIO_REGION',
+      'eu-central-1'
+    );
+
     this.minioClient = new MinioClient({
       endPoint: this.configService.get<string>('MINIO_ENDPOINT', 'localhost'),
       port: parseInt(this.configService.get<string>('MINIO_PORT', '9000')),
+      useSSL,
+      accessKey,
+      secretKey,
+      region,
+    });
+
+    this.publicMinioClient = new MinioClient({
+      endPoint: this.configService.get<string>(
+        'MINIO_PUBLIC_ENDPOINT',
+        this.configService.get<string>('MINIO_ENDPOINT', 'localhost')
+      ),
+      port: parseInt(
+        this.configService.get<string>(
+          'MINIO_PUBLIC_PORT',
+          this.configService.get<string>('MINIO_PORT', '9000')
+        )
+      ),
       useSSL:
-        this.configService.get<string>('MINIO_USE_SSL', 'false') === 'true',
-      accessKey: this.configService.get<string>(
-        'MINIO_ACCESS_KEY',
-        'minioadmin'
-      ),
-      secretKey: this.configService.get<string>(
-        'MINIO_SECRET_KEY',
-        'minioadmin'
-      ),
+        this.configService.get<string>(
+          'MINIO_PUBLIC_USE_SSL',
+          this.configService.get<string>('MINIO_USE_SSL', 'false')
+        ) === 'true',
+      accessKey,
+      secretKey,
+      region,
     });
 
     this.bucketName = this.configService.get<string>(
@@ -59,7 +90,7 @@ export class MinioService {
     try {
       const exists = await this.minioClient.bucketExists(this.bucketName);
       if (!exists) {
-        await this.minioClient.makeBucket(this.bucketName, 'us-east-1');
+        await this.minioClient.makeBucket(this.bucketName, this.configService.get<string>('MINIO_REGION', 'eu-central-1'));
         this.logger.log(`Created bucket: ${this.bucketName}`);
       }
     } catch (error: any) {
@@ -104,11 +135,7 @@ export class MinioService {
         { 'Content-Type': file.mimetype }
       );
 
-      const url = await this.minioClient.presignedGetObject(
-        this.bucketName,
-        fileName,
-        24 * 60 * 60
-      );
+      const url = await this.createPublicGetUrl(fileName);
 
       this.logger.log(`File uploaded successfully: ${fileName}`);
       return { fileName, url };
@@ -125,7 +152,7 @@ export class MinioService {
         destFileName,
         `/${this.bucketName}/${sourceFileName}`,
       );
-      const url = await this.minioClient.presignedGetObject(this.bucketName, destFileName, 24 * 60 * 60);
+      const url = await this.createPublicGetUrl(destFileName);
       this.logger.log(`File copied: ${sourceFileName} -> ${destFileName}`);
       return { fileName: destFileName, url };
     } catch (error: any) {
@@ -146,15 +173,19 @@ export class MinioService {
 
   async getFileUrl(fileName: string): Promise<string> {
     try {
-      return await this.minioClient.presignedGetObject(
-        this.bucketName,
-        fileName,
-        24 * 60 * 60
-      );
+      return await this.createPublicGetUrl(fileName);
     } catch (error: any) {
       this.logger.error(`Error getting file URL: ${error?.message}`);
       throw new Error(`Failed to get file URL: ${error?.message}`);
     }
+  }
+
+  private async createPublicGetUrl(fileName: string): Promise<string> {
+    return this.publicMinioClient.presignedGetObject(
+      this.bucketName,
+      fileName,
+      24 * 60 * 60
+    );
   }
 
   /**
@@ -208,11 +239,7 @@ export class MinioService {
         { 'Content-Type': mimeType }
       );
 
-      const url = await this.minioClient.presignedGetObject(
-        this.bucketName,
-        fileName,
-        24 * 60 * 60
-      );
+      const url = await this.createPublicGetUrl(fileName);
 
       this.logger.log(`Sheet uploaded: ${fileName}`);
 
@@ -232,11 +259,7 @@ export class MinioService {
           { 'Content-Type': 'image/jpeg' }
         );
 
-        const thumbnailUrl = await this.minioClient.presignedGetObject(
-          this.bucketName,
-          thumbnailName,
-          24 * 60 * 60
-        );
+        const thumbnailUrl = await this.createPublicGetUrl(thumbnailName);
 
         return { fileName, url, originalName, thumbnailName, thumbnailUrl };
       } catch (thumbError: any) {

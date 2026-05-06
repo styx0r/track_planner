@@ -14,8 +14,8 @@
     3003,
     3004,
     3333,
-    8529,
-    9000
+    "arangodb:8529",
+    "minio:9000"
   ],
   "portsAttributes": {
     "3000": { "label": "Backoffice (Next.js)" },

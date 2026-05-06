@@ -18,6 +18,7 @@ services:
       # Align with backend/.env_template values
       - MINIO_ROOT_USER=minioadmin
       - MINIO_ROOT_PASSWORD=minioadmin
+      - MINIO_REGION_NAME=eu-central-1
     command: server /data --address ":9000"
     ports:
       - "9000:9000"
