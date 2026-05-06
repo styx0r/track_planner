@@ -12,9 +12,11 @@ services:
       BACKEND_URL: http://localhost:3333
       NEXT_PUBLIC_BACKEND_URL: http://localhost:3333
       ARANGO_URL: http://arangodb:8529
-      ARANGO_DATABASE: track_planner
-      ARANGO_USER: root
-      ARANGO_PASSWORD: track_planner
+      ARANGO_ROOT_USER: root
+      ARANGO_ROOT_PASSWORD: track_planner
+      ARANGO_DATABASE: track-planner
+      ARANGO_USER: track-planner
+      ARANGO_PASSWORD: track-planner
       MINIO_ENDPOINT: minio
       MINIO_PORT: "9000"
       MINIO_USE_SSL: "false"

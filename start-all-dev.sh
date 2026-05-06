@@ -20,9 +20,11 @@ export NEXT_PUBLIC_BACKEND_URL="http://localhost:3333"
 
 # ArangoDB (Compose-Service-Name)
 export ARANGO_URL="http://arangodb:8529"
-export ARANGO_DATABASE="track_planner"
-export ARANGO_USER="root"
-export ARANGO_PASSWORD="track_planner"
+export ARANGO_ROOT_USER="root"
+export ARANGO_ROOT_PASSWORD="track_planner"
+export ARANGO_DATABASE="track-planner"
+export ARANGO_USER="track-planner"
+export ARANGO_PASSWORD="track-planner"
 
 # MinIO (Compose-Service-Name)
 export MINIO_ENDPOINT="minio"
@@ -34,5 +36,18 @@ export MINIO_BUCKET_NAME="music-files"
 
 # Nx Cache deaktivieren, damit Aenderungen sofort greifen
 export NX_SKIP_NX_CACHE="true"
+
+echo "Waiting for ArangoDB at ${ARANGO_URL}..."
+for _ in {1..30}; do
+  if curl -fsS "${ARANGO_URL}/_api/version" >/dev/null 2>&1; then
+    break
+  fi
+  sleep 1
+done
+
+ARANGO_DB_NAME="${ARANGO_DATABASE}" \
+ARANGO_APP_USER="${ARANGO_USER}" \
+ARANGO_APP_PASSWORD="${ARANGO_PASSWORD}" \
+bash backend/scripts/setup-arango.sh
 
 exec npm run dev:all

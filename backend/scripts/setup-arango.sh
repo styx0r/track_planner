@@ -5,9 +5,9 @@ set -euo pipefail
 ARANGO_URL=${ARANGO_URL:-http://localhost:8529}
 ROOT_USER=${ARANGO_ROOT_USER:-root}
 ROOT_PASS=${ARANGO_ROOT_PASSWORD:-track_planner}
-DB_NAME=${ARANGO_DB_NAME:-track-planner}
-APP_USER=${ARANGO_APP_USER:-track-planner}
-APP_PASS=${ARANGO_APP_PASSWORD:-track-planner}
+DB_NAME=${ARANGO_DB_NAME:-${ARANGO_DATABASE:-track-planner}}
+APP_USER=${ARANGO_APP_USER:-${ARANGO_USER:-track-planner}}
+APP_PASS=${ARANGO_APP_PASSWORD:-${ARANGO_PASSWORD:-track-planner}}
 COLLECTION_NAME=${ARANGO_COLLECTION_NAME:-music}
 
 echo "Setting up ArangoDB database..."
