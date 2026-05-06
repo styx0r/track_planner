@@ -446,37 +446,36 @@ export class PlaybackService {
   }
 
   /**
-   * Stop playback completely
+   * Stop playback and keep the selected program/current item loaded.
    */
   async stop(): Promise<PlaybackState> {
-    // Clear any pending playback timeout
-    if (this.playbackTimeout) {
-      clearTimeout(this.playbackTimeout);
-      this.playbackTimeout = null;
-    }
+    await this.stopAudioOnly();
 
-    if (this.playerProcess) {
-      this.playerProcess.kill('SIGTERM');
-      this.playerProcess = null;
-    }
+    this.currentState = {
+      ...this.currentState,
+      status: PlaybackStatus.IDLE,
+      positionMs: 0,
+      scheduledStartTime: undefined,
+      countInStartTime: undefined,
+      countInBeats: undefined,
+    };
+    this.metronomeState.startTime = undefined;
 
-    // Clean up temp file
-    if (this.tempFilePath && fs.existsSync(this.tempFilePath)) {
-      try {
-        fs.unlinkSync(this.tempFilePath);
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : 'Unknown error';
-        this.logger.warn(`Failed to delete temp file: ${msg}`);
-      }
-      this.tempFilePath = null;
-    }
+    return this.getState();
+  }
+
+  /**
+   * Reset the selected program completely, while leaving the performance clock running.
+   */
+  async resetProgram(): Promise<PlaybackState> {
+    await this.stopAudioOnly();
 
     this.currentState = {
       status: PlaybackStatus.IDLE,
     };
-    this.playbackStartTime = null;
     this.currentPlaylist = null;
     this.currentItemIndex = undefined;
+    this.metronomeState.startTime = undefined;
 
     return this.getState();
   }

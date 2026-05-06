@@ -188,6 +188,21 @@ export class PlaybackGateway implements OnGatewayInit, OnGatewayConnection, OnGa
   }
 
   /**
+   * Reset the selected program for all clients.
+   */
+  @SubscribeMessage(WS_EVENTS.RESET_PROGRAM)
+  async handleResetProgram(@ConnectedSocket() client: Socket): Promise<void> {
+    try {
+      const state = await this.playbackService.resetProgram();
+      this.broadcastState(WS_EVENTS.PLAYBACK_STOPPED, state);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Reset program error: ${message}`);
+      client.emit(WS_EVENTS.PLAYBACK_ERROR, { message });
+    }
+  }
+
+  /**
    * Next track command
    */
   @SubscribeMessage(WS_EVENTS.NEXT)

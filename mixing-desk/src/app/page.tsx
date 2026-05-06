@@ -38,7 +38,7 @@ function formatDuration(ms: number | undefined) {
 export default function MixingDeskPage() {
   const {
     isConnected, isLoading, playbackState,
-    connect, startPerformance, loadPlaylist, stop,
+    connect, startPerformance, loadPlaylist, resetProgram,
   } = usePlayback();
 
   const now = useClock();
@@ -102,7 +102,7 @@ export default function MixingDeskPage() {
 
   function confirmPlaylistReset() {
     setSelectedPlaylistUid(null);
-    stop();
+    resetProgram();
     setShowPlaylistResetDialog(false);
   }
 

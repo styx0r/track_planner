@@ -38,6 +38,7 @@ interface UsePlaybackReturn {
   setCountIn: (beats: number) => void;
   startPerformance: () => void;
   loadPlaylist: (playlistUid: string) => void;
+  resetProgram: () => void;
 }
 
 export function usePlayback(): UsePlaybackReturn {
@@ -200,6 +201,10 @@ export function usePlayback(): UsePlaybackReturn {
     socketRef.current?.connected && socketRef.current.emit(WS_EVENTS.LOAD_PLAYLIST, { playlistUid });
   }, []);
 
+  const resetProgram = useCallback(() => {
+    socketRef.current?.connected && socketRef.current.emit(WS_EVENTS.RESET_PROGRAM);
+  }, []);
+
   useEffect(() => {
     return () => {
       socketRef.current?.disconnect();
@@ -233,5 +238,6 @@ export function usePlayback(): UsePlaybackReturn {
     setCountIn,
     startPerformance,
     loadPlaylist,
+    resetProgram,
   };
 }
