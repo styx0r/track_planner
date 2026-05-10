@@ -216,7 +216,7 @@ export class PlaybackService {
 
     // Update metronome state
     this.metronomeState.bpm = bpm;
-    this.metronomeState.startTime = songStartTime;
+    this.metronomeState.startTime = songStartTime + ((music as any).metronome_offset || 0);
     this.metronomeState.countInBeats = effectiveCountInBeats;
     this.metronomeState.enabled = metronomeEnabled;
 

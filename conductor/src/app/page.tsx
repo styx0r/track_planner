@@ -87,7 +87,7 @@ export default function ConductorPage() {
 
   const { status, playlistItems = [], currentItemIndex: playbackItemIndex = 0,
     currentTrackTitle, currentModerationText, currentModerationAuthor,
-    sheets = [], audioUrl, bpm, durationMs,
+    sheets = [], audioUrl, bpm, durationMs, metronomeOffset = 0,
     timeSignature } = playbackState;
 
   const isPlaying = status === PlaybackStatus.PLAYING;
@@ -108,6 +108,9 @@ export default function ConductorPage() {
   const effectiveTimeSignature = timeSignature ?? fallbackMusic?.time_signature ?? '4/4';
   const effectiveAudioUrl = isModeration ? null : (audioUrl ?? fallbackMusic?.file_url ?? null);
   const isACapella = !isModeration && fallbackMusic?.presentation_type === PresentationType.A_CAPELLA;
+  const effectiveMetronomeStartTime = scheduledLocalStartTime !== null
+    ? scheduledLocalStartTime + metronomeOffset
+    : null;
   const effectiveTrackIndex = currentItem?.type === PlaylistItemType.TRACK
     ? effectivePlaylistItems.slice(0, currentItemIndex + 1).filter((item) => item.type === PlaylistItemType.TRACK).length - 1
     : playbackState.currentTrackIndex ?? 0;
@@ -271,7 +274,7 @@ export default function ConductorPage() {
             bpm={effectiveBpm}
             enabled={isACapella || (metronomeState.enabled && isPlaying)}
             timeSignature={effectiveTimeSignature}
-            startTime={isACapella ? aCapellaMetronomeStartTime : (isPlaying ? scheduledLocalStartTime : null)}
+            startTime={isACapella ? aCapellaMetronomeStartTime : (isPlaying ? effectiveMetronomeStartTime : null)}
           />
         </div>
 
