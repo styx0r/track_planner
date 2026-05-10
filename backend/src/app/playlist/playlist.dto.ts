@@ -4,6 +4,7 @@ import {
   Field,
   ID,
   Int,
+  Float,
   GraphQLISODateTime,
   registerEnumType,
 } from '@nestjs/graphql';
@@ -48,6 +49,9 @@ export class PlaylistTrackSummary {
 
   @Field(() => Int, { nullable: true, description: 'Duration in seconds' })
   duration?: number;
+
+  @Field(() => [Float], { nullable: true })
+  waveform?: number[];
 
   @Field({ nullable: true })
   time_signature?: string;

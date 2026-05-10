@@ -4,6 +4,7 @@ import { MinioService } from './minio.service';
 import { CreateMusicInput, UpdateMusicInput, MusicSearchInput, Music, SheetMusic } from './music.dto';
 import { v4 as uuidv4 } from 'uuid';
 import * as path from 'path';
+import { spawn } from 'child_process';
 
 interface MulterFile {
   originalname: string;
@@ -35,11 +36,128 @@ async function uploadFileToSheets(
 export class MusicService {
   private readonly logger = new Logger(MusicService.name);
   private readonly collectionName = 'music';
+  private readonly waveformBarCount = 120;
 
   constructor(
     private databaseService: DatabaseService,
     private minioService: MinioService,
   ) {}
+
+  private async generateWaveformFromBuffer(buffer: Buffer, label: string): Promise<number[] | undefined> {
+    if (!buffer.length) return undefined;
+
+    return new Promise((resolve) => {
+      const ffmpeg = spawn('ffmpeg', [
+        '-hide_banner',
+        '-loglevel',
+        'error',
+        '-i',
+        'pipe:0',
+        '-ac',
+        '1',
+        '-ar',
+        '8000',
+        '-f',
+        'f32le',
+        'pipe:1',
+      ]);
+
+      const stdoutChunks: Buffer[] = [];
+      const stderrChunks: Buffer[] = [];
+      const timeout = setTimeout(() => {
+        ffmpeg.kill('SIGKILL');
+      }, 30000);
+
+      ffmpeg.stdout.on('data', (chunk: Buffer) => stdoutChunks.push(chunk));
+      ffmpeg.stderr.on('data', (chunk: Buffer) => stderrChunks.push(chunk));
+
+      ffmpeg.on('error', (error) => {
+        clearTimeout(timeout);
+        this.logger.warn(`Could not generate waveform for ${label}: ${error.message}`);
+        resolve(undefined);
+      });
+
+      ffmpeg.on('close', (code) => {
+        clearTimeout(timeout);
+        if (code !== 0) {
+          const details = Buffer.concat(stderrChunks).toString('utf8').trim();
+          this.logger.warn(`Could not generate waveform for ${label}: ffmpeg exited with ${code}${details ? ` (${details})` : ''}`);
+          resolve(undefined);
+          return;
+        }
+
+        resolve(this.calculateWaveform(Buffer.concat(stdoutChunks)));
+      });
+
+      ffmpeg.stdin.end(buffer);
+    });
+  }
+
+  private calculateWaveform(rawPcm: Buffer): number[] | undefined {
+    const sampleCount = Math.floor(rawPcm.length / 4);
+    if (sampleCount === 0) return undefined;
+
+    const barCount = this.waveformBarCount;
+    const samplesPerBar = Math.max(1, Math.floor(sampleCount / barCount));
+    const bars: number[] = [];
+
+    for (let bar = 0; bar < barCount; bar++) {
+      const start = bar * samplesPerBar;
+      const end = bar === barCount - 1
+        ? sampleCount
+        : Math.min(sampleCount, start + samplesPerBar);
+
+      let sum = 0;
+      let count = 0;
+      for (let sample = start; sample < end; sample++) {
+        sum += Math.abs(rawPcm.readFloatLE(sample * 4));
+        count++;
+      }
+      bars.push(count > 0 ? sum / count : 0);
+    }
+
+    const max = Math.max(...bars);
+    if (max <= 0) return Array.from({ length: barCount }, () => 0);
+
+    return bars.map((value) => Number((value / max).toFixed(4)));
+  }
+
+  private async readMinioObjectToBuffer(fileName: string): Promise<Buffer> {
+    const stream = await this.minioService.getObjectStream(fileName);
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream as AsyncIterable<Buffer | Uint8Array>) {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    }
+    return Buffer.concat(chunks);
+  }
+
+  private async ensureWaveform(doc: any): Promise<any> {
+    if (Array.isArray(doc.waveform) && doc.waveform.length > 0) {
+      return doc;
+    }
+
+    if (!doc.file_name) {
+      return doc;
+    }
+
+    try {
+      const buffer = await this.readMinioObjectToBuffer(doc.file_name);
+      const waveform = await this.generateWaveformFromBuffer(buffer, doc.file_name);
+      if (!waveform) return doc;
+
+      const db = this.databaseService.getDatabase();
+      const collection = db.collection(this.collectionName);
+      await collection.update(doc._key, {
+        waveform,
+      });
+
+      return { ...doc, waveform };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Could not ensure waveform for ${doc.uid}: ${message}`);
+      return doc;
+    }
+  }
 
   private async refreshSheets(sheets: SheetMusic[]): Promise<SheetMusic[]> {
     return Promise.all(
@@ -111,6 +229,9 @@ export class MusicService {
         fileName = uploaded.fileName;
         url = uploaded.url;
       }
+      const waveform = file
+        ? await this.generateWaveformFromBuffer(file.buffer, file.originalname)
+        : undefined;
 
       // Upload sheet music files (PDFs are expanded to one entry per page)
       const sheets: SheetMusic[] = [];
@@ -128,6 +249,7 @@ export class MusicService {
         update_timestamp: new Date(),
         file_url: url,
         file_name: fileName,
+        waveform: waveform ?? [],
         sheets,
         ...createMusicInput,
       };
@@ -267,7 +389,8 @@ export class MusicService {
         throw new NotFoundException(`Music with UID ${uid} not found`);
       }
 
-      return this.docToMusic(documents[0]);
+      const docWithWaveform = await this.ensureWaveform(documents[0]);
+      return this.docToMusic(docWithWaveform);
     } catch (error) {
       this.logger.error(`Error getting music by ID: ${error.message}`);
       throw error;
@@ -435,10 +558,12 @@ export class MusicService {
       }
 
       const { fileName, url } = await this.minioService.uploadFile(file);
+      const waveform = await this.generateWaveformFromBuffer(file.buffer, file.originalname);
 
       await collection.update(doc._key, {
         file_name: fileName,
         file_url: url,
+        waveform: waveform ?? [],
         update_timestamp: new Date(),
       });
 
@@ -518,6 +643,7 @@ export class MusicService {
         title: `${docData.title} (Kopie)`,
         file_name: newFileName,
         file_url: newFileUrl,
+        waveform: Array.isArray(docData.waveform) ? docData.waveform : [],
         sheets: newSheets,
         creation_timestamp: new Date(),
         update_timestamp: new Date(),

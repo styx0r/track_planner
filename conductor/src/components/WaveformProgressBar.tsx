@@ -5,19 +5,13 @@ import styles from './WaveformProgressBar.module.css';
 
 const NUM_BARS = 120;
 
-// Module-level cache so waveform data persists across re-renders and track changes
-const waveformCache = new Map<string, number[]>();
-
-// Deterministic fallback waveform used when audio can't be decoded
+// Deterministic fallback waveform used when backend data is not available yet
 const FALLBACK_WAVEFORM = Array.from({ length: NUM_BARS }, (_, i) =>
   Math.max(0.08, Math.min(1, Math.sin(i * 0.18) * 0.35 + 0.5 + Math.sin(i * 0.71) * 0.18))
 );
 
-// Skeleton bars shown while waveform is loading
-const LOADING_BARS = Array.from({ length: NUM_BARS }, () => 0.28);
-
 interface WaveformProgressBarProps {
-  audioUrl: string | null;
+  waveformData?: number[] | null;
   durationMs: number;
   scheduledLocalStartTime: number | null;
   positionMs?: number;
@@ -26,7 +20,7 @@ interface WaveformProgressBarProps {
 }
 
 export function WaveformProgressBar({
-  audioUrl,
+  waveformData,
   durationMs,
   scheduledLocalStartTime,
   positionMs,
@@ -66,69 +60,23 @@ export function WaveformProgressBar({
     };
   }, [isPlaying, scheduledLocalStartTime, durationMs]);
 
-  // Load and decode waveform from audio file
+  // Use compact waveform data calculated by the backend. The client only renders
+  // bars and progress; it no longer downloads the audio file for visualization.
   useEffect(() => {
-    if (!audioUrl) {
+    if (!waveformData || waveformData.length === 0) {
       setWaveform(FALLBACK_WAVEFORM);
       return;
     }
 
-    if (waveformCache.has(audioUrl)) {
-      setWaveform(waveformCache.get(audioUrl)!);
-      return;
-    }
-
-    setWaveform(null); // show loading skeleton
-
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const res = await fetch(audioUrl);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const buf = await res.arrayBuffer();
-        if (cancelled) return;
-
-        const ctx = new AudioContext();
-        const audio = await ctx.decodeAudioData(buf);
-        await ctx.close();
-        if (cancelled) return;
-
-        const channel = audio.getChannelData(0);
-        const blockSize = Math.floor(channel.length / NUM_BARS);
-        const data: number[] = [];
-
-        for (let i = 0; i < NUM_BARS; i++) {
-          let sum = 0;
-          for (let j = 0; j < blockSize; j++) {
-            sum += Math.abs(channel[i * blockSize + j]);
-          }
-          data.push(sum / blockSize);
-        }
-
-        const max = Math.max(...data);
-        const normalized = data.map(v => (max > 0 ? v / max : 0));
-
-        waveformCache.set(audioUrl, normalized);
-        if (!cancelled) setWaveform(normalized);
-      } catch {
-        if (!cancelled) {
-          waveformCache.set(audioUrl, FALLBACK_WAVEFORM);
-          setWaveform(FALLBACK_WAVEFORM);
-        }
-      }
-    })();
-
-    return () => { cancelled = true; };
-  }, [audioUrl]);
+    setWaveform(waveformData.slice(0, NUM_BARS));
+  }, [waveformData]);
 
   // Show placeholder only when no track is loaded at all
-  if (!audioUrl && !durationMs) {
+  if (!durationMs) {
     return <div className={styles.placeholder} />;
   }
 
-  const bars = waveform ?? LOADING_BARS;
-  const isLoading = waveform === null;
+  const bars = waveform ?? FALLBACK_WAVEFORM;
   const effectiveDuration = durationMs || 0;
   const currentMs = progress * effectiveDuration;
 
@@ -140,7 +88,7 @@ export function WaveformProgressBar({
   };
 
   return (
-    <div className={`${styles.wrapper} ${isLoading ? styles.loading : ''}`}>
+    <div className={styles.wrapper}>
       <div
         className={`${styles.waveform} ${onSeek ? styles.seekable : ''}`}
         onClick={handleWaveformClick}

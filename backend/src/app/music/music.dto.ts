@@ -5,6 +5,7 @@ import {
   ID,
   registerEnumType,
   Int,
+  Float,
   GraphQLISODateTime,
 } from '@nestjs/graphql';
 import { IsString, IsOptional, IsEnum, IsNumber, IsBoolean } from 'class-validator';
@@ -96,6 +97,9 @@ export class Music {
 
   @Field(() => Int, { nullable: true, description: 'Duration in seconds' })
   duration?: number;
+
+  @Field(() => [Float], { nullable: true, description: 'Normalized waveform amplitudes for display' })
+  waveform?: number[];
 
   @Field({ nullable: true })
   lyrics?: string;

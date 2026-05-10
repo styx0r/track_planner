@@ -110,6 +110,9 @@ type Music {
   uid: ID!
   update_timestamp: DateTime!
   version: String
+
+  """Normalized waveform amplitudes for display"""
+  waveform: [Float!]
 }
 
 input MusicSearchInput {
@@ -184,6 +187,7 @@ type PlaylistTrackSummary {
   time_signature: String
   title: String!
   uid: ID!
+  waveform: [Float!]
 }
 
 enum PresentationType {

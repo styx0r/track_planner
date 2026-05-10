@@ -46,6 +46,9 @@ export class PlaybackState {
   @Field(() => Float, { nullable: true })
   durationMs?: number;
 
+  @Field(() => [Float], { nullable: true })
+  waveform?: number[];
+
   @Field(() => Int, { nullable: true })
   bpm?: number;
 
@@ -65,7 +68,7 @@ export class PlaybackState {
   sheets?: SheetMusic[]; // Sheet music files for current track
 
   @Field({ nullable: true })
-  audioUrl?: string; // Direct URL to the audio file (for waveform generation)
+  audioUrl?: string; // Direct URL to the audio file
 
   // Full-items navigation (not a GraphQL field — WS-only)
   currentItemIndex?: number;

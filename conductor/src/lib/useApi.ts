@@ -46,6 +46,8 @@ const PLAYLIST_ITEMS_FRAGMENT = `
       author
       presentation_type
       bpm
+      duration
+      waveform
       time_signature
       sheets {
         uid
@@ -97,6 +99,7 @@ const MUSIC_QUERY = `
       presentation_type
       bpm
       duration
+      waveform
       time_signature
       file_url
       sheets {

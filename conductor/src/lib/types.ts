@@ -22,13 +22,14 @@ export interface PlaybackState {
   timeSignature?: string;
   positionMs?: number;
   durationMs?: number;
+  waveform?: number[];
   bpm?: number;
   metronomeOffset?: number; // Offset in ms for when metronome should start relative to song
   scheduledStartTime?: number; // When the song actually starts
   countInStartTime?: number; // When the count-in metronome starts (before song)
   countInBeats?: number; // Number of beats in the count-in
   sheets?: SheetMusicItem[]; // Sheet music files for current track
-  audioUrl?: string; // Direct URL to the audio file (for waveform generation)
+  audioUrl?: string; // Direct URL to the audio file
   currentItemIndex?: number;
   currentModerationText?: string;
   currentModerationAuthor?: string;
@@ -71,6 +72,7 @@ export interface PlaylistTrackSummary {
   presentation_type?: PresentationType;
   bpm?: number;
   duration?: number;
+  waveform?: number[];
   time_signature?: string;
   file_url?: string;
   sheets?: SheetMusicItem[];

@@ -212,6 +212,7 @@ export class PlaybackService {
       sheets: (music as any).sheets || [],
       audioUrl: music.file_url || undefined,
       durationMs: music.duration ? music.duration * 1000 : undefined,
+      waveform: Array.isArray((music as any).waveform) ? (music as any).waveform : undefined,
     };
 
     // Update metronome state
@@ -548,6 +549,7 @@ export class PlaybackService {
         sheets: (music as any).sheets || [],
         audioUrl: music.file_url || undefined,
         durationMs: music.duration ? music.duration * 1000 : undefined,
+        waveform: Array.isArray((music as any).waveform) ? (music as any).waveform : undefined,
         scheduledStartTime: undefined,
         countInStartTime: undefined,
         countInBeats: undefined,
@@ -609,6 +611,7 @@ export class PlaybackService {
         sheets: undefined,
         audioUrl: undefined,
         durationMs: undefined,
+        waveform: undefined,
         positionMs: undefined,
         scheduledStartTime: undefined,
         countInStartTime: undefined,

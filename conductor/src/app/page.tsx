@@ -87,7 +87,7 @@ export default function ConductorPage() {
 
   const { status, playlistItems = [], currentItemIndex: playbackItemIndex = 0,
     currentTrackTitle, currentModerationText, currentModerationAuthor,
-    sheets = [], audioUrl, bpm, durationMs, metronomeOffset = 0,
+    sheets = [], bpm, durationMs, metronomeOffset = 0,
     timeSignature } = playbackState;
 
   const isPlaying = status === PlaybackStatus.PLAYING;
@@ -106,7 +106,7 @@ export default function ConductorPage() {
   const effectiveBpm = bpm ?? fallbackMusic?.bpm ?? 120;
   const effectiveDurationMs = durationMs ?? (fallbackMusic?.duration ? fallbackMusic.duration * 1000 : 0);
   const effectiveTimeSignature = timeSignature ?? fallbackMusic?.time_signature ?? '4/4';
-  const effectiveAudioUrl = isModeration ? null : (audioUrl ?? fallbackMusic?.file_url ?? null);
+  const effectiveWaveform = isModeration ? null : (playbackState.waveform ?? fallbackMusic?.waveform ?? null);
   const isACapella = !isModeration && fallbackMusic?.presentation_type === PresentationType.A_CAPELLA;
   const effectiveMetronomeStartTime = scheduledLocalStartTime !== null
     ? scheduledLocalStartTime + metronomeOffset
@@ -243,7 +243,7 @@ export default function ConductorPage() {
           </button>
 
           <WaveformProgressBar
-            audioUrl={effectiveAudioUrl}
+            waveformData={effectiveWaveform}
             durationMs={effectiveDurationMs}
             scheduledLocalStartTime={scheduledLocalStartTime}
             positionMs={playbackState.positionMs}
