@@ -99,13 +99,24 @@
   letter-spacing: 1.5px;
 }
 
+.moderationContent {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 16px;
+  width: 100%;
+  min-height: 0;
+}
+
 .moderationText {
   font-size: clamp(20px, 3vw, 36px);
   font-weight: 500;
   color: #f1f5f9;
   line-height: 1.6;
   width: 100%;
+  max-width: none;
   max-height: 100%;
+  box-sizing: border-box;
   overflow-y: auto;
   padding-right: 12px;
   white-space: pre-wrap;

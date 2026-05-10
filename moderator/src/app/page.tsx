@@ -149,12 +149,12 @@ export default function ModeratorPage() {
         {!playbackState.playlistUid ? (
           <div className={styles.idleHint}>Warte auf das Mischpult...</div>
         ) : displayModerationText ? (
-          <>
+          <div className={styles.moderationContent}>
             {isNextModerationPreview && <div className={styles.nextLabel}>derzeit keine aktive Moderation</div>}
             <div className={`${styles.moderationText} ${isModerationTextDimmed ? styles.moderationTextDimmed : ''}`}>
               {displayModerationText}
             </div>
-          </>
+          </div>
         ) : (
           <div className={styles.noModeration}>Keine weiteren Moderationen</div>
         )}
