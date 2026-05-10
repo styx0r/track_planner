@@ -2,7 +2,7 @@ import './global.css';
 import ThemeRegistry from './ThemeRegistry';
 
 export const metadata = {
-  title: 'Track Planner - Backoffice',
+  title: 'Backoffice',
   description: 'Music management system for track planning',
 };
 
