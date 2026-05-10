@@ -7,7 +7,7 @@ import {
   GraphQLISODateTime,
   registerEnumType,
 } from '@nestjs/graphql';
-import { SheetMusic } from '../music/music.dto';
+import { PresentationType, SheetMusic } from '../music/music.dto';
 import {
   IsString,
   IsOptional,
@@ -36,6 +36,9 @@ export class PlaylistTrackSummary {
 
   @Field()
   author!: string;
+
+  @Field(() => PresentationType, { nullable: true })
+  presentation_type?: PresentationType;
 
   @Field({ nullable: true })
   performer?: string;

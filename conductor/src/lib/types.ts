@@ -58,10 +58,17 @@ export enum PlaylistItemType {
   MODERATION_TEXT = 'MODERATION_TEXT',
 }
 
+export enum PresentationType {
+  A_CAPELLA = 'A_CAPELLA',
+  LIVE_PIANO = 'LIVE_PIANO',
+  PLAYBACK = 'PLAYBACK',
+}
+
 export interface PlaylistTrackSummary {
   uid: string;
   title: string;
   author: string;
+  presentation_type?: PresentationType;
   bpm?: number;
   duration?: number;
   time_signature?: string;

@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { usePlayback } from '../lib/usePlayback';
 import { fetchMusicApi } from '../lib/useApi';
-import { PlaybackStatus, PlaylistItemType, PlaylistTrackSummary } from '../lib/types';
+import { PlaybackStatus, PlaylistItemType, PlaylistTrackSummary, PresentationType } from '../lib/types';
 import { ConductorSheetViewer } from '../components/ConductorSheetViewer';
 import { WaveformProgressBar } from '../components/WaveformProgressBar';
 import styles from './page.module.css';
@@ -79,6 +79,7 @@ export default function ConductorPage() {
 
   const now = useClock();
   const [localTrackDetails, setLocalTrackDetails] = useState<PlaylistTrackSummary | null>(null);
+  const [aCapellaMetronomeStartTime, setACapellaMetronomeStartTime] = useState<number | null>(null);
 
   useEffect(() => { connect(); }, [connect]);
 
@@ -106,6 +107,7 @@ export default function ConductorPage() {
   const effectiveDurationMs = durationMs ?? (fallbackMusic?.duration ? fallbackMusic.duration * 1000 : 0);
   const effectiveTimeSignature = timeSignature ?? fallbackMusic?.time_signature ?? '4/4';
   const effectiveAudioUrl = isModeration ? null : (audioUrl ?? fallbackMusic?.file_url ?? null);
+  const isACapella = !isModeration && fallbackMusic?.presentation_type === PresentationType.A_CAPELLA;
   const effectiveTrackIndex = currentItem?.type === PlaylistItemType.TRACK
     ? effectivePlaylistItems.slice(0, currentItemIndex + 1).filter((item) => item.type === PlaylistItemType.TRACK).length - 1
     : playbackState.currentTrackIndex ?? 0;
@@ -127,6 +129,15 @@ export default function ConductorPage() {
 
     return () => { cancelled = true; };
   }, [currentItem]);
+
+  useEffect(() => {
+    if (!isACapella) {
+      setACapellaMetronomeStartTime(null);
+      return;
+    }
+
+    setACapellaMetronomeStartTime(Date.now());
+  }, [currentItemIndex, isACapella]);
 
   const goPrevious = useCallback(() => { previous(); }, [previous]);
 
@@ -217,35 +228,36 @@ export default function ConductorPage() {
         )}
       </main>
 
-      {/* Controls: play, waveform, stop */}
-      <div className={styles.controls}>
-        <button
-          className={styles.playBtn}
-          onClick={() => activePlaylistUid && !isModeration && play(activePlaylistUid, effectiveTrackIndex, 0)}
-          disabled={isPlaybackActive || isModeration || !activePlaylistUid}
-          title="Play"
-        >
-          ▶
-        </button>
+      {!isACapella && (
+        <div className={styles.controls}>
+          <button
+            className={styles.playBtn}
+            onClick={() => activePlaylistUid && !isModeration && play(activePlaylistUid, effectiveTrackIndex, 0)}
+            disabled={isPlaybackActive || isModeration || !activePlaylistUid}
+            title="Play"
+          >
+            ▶
+          </button>
 
-        <WaveformProgressBar
-          audioUrl={effectiveAudioUrl}
-          durationMs={effectiveDurationMs}
-          scheduledLocalStartTime={scheduledLocalStartTime}
-          positionMs={playbackState.positionMs}
-          isPlaying={isPlaying}
-          onSeek={undefined}
-        />
+          <WaveformProgressBar
+            audioUrl={effectiveAudioUrl}
+            durationMs={effectiveDurationMs}
+            scheduledLocalStartTime={scheduledLocalStartTime}
+            positionMs={playbackState.positionMs}
+            isPlaying={isPlaying}
+            onSeek={undefined}
+          />
 
-        <button
-          className={styles.stopBtn}
-          onClick={stop}
-          disabled={!isPlaybackActive}
-          title="Stop"
-        >
-          ⏹
-        </button>
-      </div>
+          <button
+            className={styles.stopBtn}
+            onClick={stop}
+            disabled={!isPlaybackActive}
+            title="Stop"
+          >
+            ⏹
+          </button>
+        </div>
+      )}
 
       {/* Footer: BPM, beat indicator, clock */}
       <footer className={styles.footer}>
@@ -257,9 +269,9 @@ export default function ConductorPage() {
         <div className={styles.metronomeWrapper}>
           <BeatDots
             bpm={effectiveBpm}
-            enabled={metronomeState.enabled && isPlaying}
+            enabled={isACapella || (metronomeState.enabled && isPlaying)}
             timeSignature={effectiveTimeSignature}
-            startTime={isPlaying ? scheduledLocalStartTime : null}
+            startTime={isACapella ? aCapellaMetronomeStartTime : (isPlaying ? scheduledLocalStartTime : null)}
           />
         </div>
 

@@ -179,6 +179,7 @@ type PlaylistTrackSummary {
   file_url: String
   metronome_default_enabled: Boolean
   performer: String
+  presentation_type: PresentationType
   sheets: [SheetMusic!]
   time_signature: String
   title: String!
