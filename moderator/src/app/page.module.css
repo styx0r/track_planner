@@ -151,8 +151,22 @@
 
 .footerRight {
   text-align: right;
-  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-end;
+}
+
+.runtime {
+  font-size: 18px;
+  color: #94a3b8;
+  font-weight: 700;
+}
+
+.clockTime {
+  font-size: 14px;
   color: #64748b;
+  font-weight: 600;
 }
 
 .connecting {

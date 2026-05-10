@@ -24,8 +24,8 @@ function formatElapsed(startTs: number, now: number) {
   const m = Math.floor((s % 3600) / 60);
   const sec = s % 60;
   return h > 0
-    ? `seit ${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
-    : `seit ${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+    ? `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
+    : `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
 }
 
 function collectTrackTitles(items: PlaylistItem[], startIndex: number, direction: 1 | -1): string[] {
@@ -162,9 +162,12 @@ export default function ModeratorPage() {
 
       {/* Footer */}
       <footer className={styles.footer}>
-        <div className={styles.footerLeft}>{formatClock(now)}</div>
+        <div />
         <div className={styles.footerRight}>
-          {performanceStartTime ? formatElapsed(performanceStartTime, now) : '–'}
+          <div className={styles.runtime}>
+            Laufzeit: {performanceStartTime ? formatElapsed(performanceStartTime, now) : '–'}
+          </div>
+          <div className={styles.clockTime}>{formatClock(now)}</div>
         </div>
       </footer>
     </div>

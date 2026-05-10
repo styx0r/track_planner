@@ -276,10 +276,12 @@ export default function ConductorPage() {
         </div>
 
         <div className={styles.clock}>
-          <span className={styles.clockTime} suppressHydrationWarning>{formatClock(now)}</span>
           {playbackState.performanceStartTime && (
-            <span className={styles.elapsed} suppressHydrationWarning>seit {formatElapsed(playbackState.performanceStartTime, now)}</span>
+            <span className={styles.elapsed} suppressHydrationWarning>
+              Laufzeit: {formatElapsed(playbackState.performanceStartTime, now)}
+            </span>
           )}
+          <span className={styles.clockTime} suppressHydrationWarning>{formatClock(now)}</span>
         </div>
       </footer>
     </div>
