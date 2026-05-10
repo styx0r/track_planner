@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 
-export const metadata: Metadata = { title: 'Conductor' };
+export const metadata: Metadata = { title: 'Auftritt' };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

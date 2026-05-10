@@ -1,7 +1,7 @@
 import './global.css';
 
 export const metadata = {
-  title: 'Track Planner - Client',
+  title: 'Probe',
   description: 'Remote music playback controller with synchronized metronome',
 };
 
