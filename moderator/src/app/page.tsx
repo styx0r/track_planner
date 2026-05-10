@@ -90,7 +90,7 @@ export default function ModeratorPage() {
   const displayModerationItem = displayModerationIndex >= 0 ? playlistItems[displayModerationIndex] : null;
   const isCurrentlyModeration = playlistItems[currentItemIndex]?.type === PlaylistItemType.MODERATION_TEXT;
   const isNextModerationPreview = playlistItems[currentItemIndex]?.type === PlaylistItemType.TRACK &&
-    currentItemIndex + 1 === displayModerationIndex;
+    displayModerationIndex > currentItemIndex;
   const isModerationTextDimmed = displayModerationIndex >= 0 &&
     currentItemIndex !== displayModerationIndex &&
     currentItemIndex !== displayModerationIndex + 1;
