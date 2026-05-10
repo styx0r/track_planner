@@ -83,6 +83,8 @@
   padding: 40px 60px;
   text-align: center;
   gap: 16px;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .idleHint {
@@ -103,6 +105,10 @@
   color: #f1f5f9;
   line-height: 1.6;
   max-width: 900px;
+  max-height: 100%;
+  overflow-y: auto;
+  padding-right: 12px;
+  white-space: pre-wrap;
 }
 
 .moderationTextDimmed {
