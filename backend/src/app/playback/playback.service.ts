@@ -334,8 +334,11 @@ export class PlaybackService {
    */
   private getPlayerExecutable(player: string): string {
     if (player === 'mpv') {
-      // Use MPV_PATH env variable if set (useful for Windows where mpv.exe might not be in PATH)
-      return process.env.MPV_PATH || 'mpv';
+      // Use MPV_PATH when valid (useful on Windows), otherwise fall back to PATH in containers.
+      if (process.env.MPV_PATH && fs.existsSync(process.env.MPV_PATH)) {
+        return process.env.MPV_PATH;
+      }
+      return 'mpv';
     }
     return player;
   }

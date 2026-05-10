@@ -1,12 +1,13 @@
 #!/bin/bash
 set -e
 
-echo "==> [post-create] Installing system dependencies for sharp/mupdf..."
+echo "==> [post-create] Installing system dependencies for sharp/mupdf and audio playback..."
 sudo apt-get update -qq
 sudo apt-get install -y --no-install-recommends \
   build-essential \
   python3 \
   libvips-dev \
+  mpv \
   pkg-config \
   || true
 

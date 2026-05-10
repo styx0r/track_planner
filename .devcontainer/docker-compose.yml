@@ -27,6 +27,7 @@ services:
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin
       MINIO_BUCKET_NAME: music-files
+      MPV_PATH: ""
       NX_SKIP_NX_CACHE: "true"
     depends_on:
       - arangodb
