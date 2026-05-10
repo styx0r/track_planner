@@ -28,34 +28,54 @@ function formatElapsed(startTs: number, now: number) {
     : `seit ${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
 }
 
-function findNextModeration(items: PlaylistItem[], currentIndex: number) {
-  for (let i = currentIndex + 1; i < items.length; i++) {
-    if (items[i].type === PlaylistItemType.MODERATION_TEXT) return items[i];
-  }
-  return null;
-}
-
-function songsSinceLastModeration(items: PlaylistItem[], currentIndex: number): string[] {
-  const startIndex = items[currentIndex]?.type === PlaylistItemType.MODERATION_TEXT
-    ? currentIndex - 1
-    : currentIndex;
+function collectTrackTitles(items: PlaylistItem[], startIndex: number, direction: 1 | -1): string[] {
   const titles: string[] = [];
-  for (let i = startIndex; i >= 0; i--) {
-    if (!items[i]) break;
-    if (items[i].type === PlaylistItemType.MODERATION_TEXT) break;
-    if (items[i].type === PlaylistItemType.TRACK) titles.unshift(items[i].music?.title ?? '?');
+
+  for (let i = startIndex; i >= 0 && i < items.length; i += direction) {
+    const item = items[i];
+    if (!item || item.type === PlaylistItemType.MODERATION_TEXT) break;
+    if (item.type === PlaylistItemType.TRACK) {
+      if (direction === 1) titles.push(item.music?.title ?? '?');
+      else titles.unshift(item.music?.title ?? '?');
+    }
   }
+
   return titles;
 }
 
-function nextSongsAfterModeration(items: PlaylistItem[], moderationItem: PlaylistItem): string[] {
-  const modIdx = items.indexOf(moderationItem);
-  const songs: string[] = [];
-  for (let i = modIdx + 1; i < items.length && songs.length < 3; i++) {
-    if (items[i].type === PlaylistItemType.TRACK) songs.push(items[i].music?.title ?? '?');
-    if (items[i].type === PlaylistItemType.MODERATION_TEXT) break;
+function findPreviousModerationIndex(items: PlaylistItem[], beforeIndex: number): number {
+  for (let i = beforeIndex - 1; i >= 0; i--) {
+    if (items[i].type === PlaylistItemType.MODERATION_TEXT) return i;
   }
-  return songs;
+  return -1;
+}
+
+function songsBeforeModeration(items: PlaylistItem[], moderationIndex: number): string[] {
+  if (moderationIndex < 0) return ['–'];
+
+  return collectTrackTitles(items, moderationIndex - 1, -1);
+}
+
+function songsAfterModeration(items: PlaylistItem[], moderationIndex: number): string[] {
+  if (moderationIndex < 0) return [];
+  return collectTrackTitles(items, moderationIndex + 1, 1);
+}
+
+function getDisplayModerationIndex(items: PlaylistItem[], currentIndex: number): number {
+  if (items[currentIndex]?.type === PlaylistItemType.MODERATION_TEXT) {
+    return currentIndex;
+  }
+
+  if (items[currentIndex]?.type === PlaylistItemType.TRACK &&
+      items[currentIndex + 1]?.type === PlaylistItemType.MODERATION_TEXT) {
+    return currentIndex + 1;
+  }
+
+  if (items[currentIndex - 1]?.type === PlaylistItemType.MODERATION_TEXT) {
+    return currentIndex - 1;
+  }
+
+  return findPreviousModerationIndex(items, currentIndex);
 }
 
 export default function ModeratorPage() {
@@ -66,18 +86,24 @@ export default function ModeratorPage() {
 
   const { playlistItems = [], currentItemIndex = 0, currentModerationText, currentModerationAuthor } = playbackState;
 
-  // When currently on a moderation item, show that. Otherwise look ahead for next moderation.
-  const isCurrentlyModeration = playbackState.status === 'moderation';
-  const currentItem = playlistItems[currentItemIndex];
-  const activeModerationItem = currentItem?.type === PlaylistItemType.MODERATION_TEXT ? currentItem : null;
-  const nextMod = isCurrentlyModeration ? null : findNextModeration(playlistItems, currentItemIndex);
+  const displayModerationIndex = getDisplayModerationIndex(playlistItems, currentItemIndex);
+  const displayModerationItem = displayModerationIndex >= 0 ? playlistItems[displayModerationIndex] : null;
+  const isCurrentlyModeration = playlistItems[currentItemIndex]?.type === PlaylistItemType.MODERATION_TEXT;
+  const isNextModerationPreview = playlistItems[currentItemIndex]?.type === PlaylistItemType.TRACK &&
+    currentItemIndex + 1 === displayModerationIndex;
+  const isModerationTextDimmed = displayModerationIndex >= 0 &&
+    currentItemIndex !== displayModerationIndex &&
+    currentItemIndex !== displayModerationIndex + 1;
 
-  const displayModerationText = isCurrentlyModeration ? currentModerationText : nextMod?.moderation_text?.text;
-  const displayModerationAuthor = isCurrentlyModeration ? currentModerationAuthor : nextMod?.moderation_text?.author;
+  const displayModerationText = isCurrentlyModeration
+    ? (currentModerationText ?? displayModerationItem?.moderation_text?.text)
+    : displayModerationItem?.moderation_text?.text;
+  const displayModerationAuthor = isCurrentlyModeration
+    ? (currentModerationAuthor ?? displayModerationItem?.moderation_text?.author)
+    : displayModerationItem?.moderation_text?.author;
 
-  const recentSongs = songsSinceLastModeration(playlistItems, currentItemIndex);
-  const moderationContextItem = activeModerationItem ?? nextMod;
-  const upcomingSongs = moderationContextItem ? nextSongsAfterModeration(playlistItems, moderationContextItem) : [];
+  const recentSongs = songsBeforeModeration(playlistItems, displayModerationIndex);
+  const upcomingSongs = songsAfterModeration(playlistItems, displayModerationIndex);
 
   if (!isConnected && isLoading) {
     return (
@@ -124,8 +150,10 @@ export default function ModeratorPage() {
           <div className={styles.idleHint}>Warte auf das Mischpult...</div>
         ) : displayModerationText ? (
           <>
-            {!isCurrentlyModeration && <div className={styles.nextLabel}>Nächste Moderation</div>}
-            <div className={styles.moderationText}>{displayModerationText}</div>
+            {isNextModerationPreview && <div className={styles.nextLabel}>derzeit keine aktive Moderation</div>}
+            <div className={`${styles.moderationText} ${isModerationTextDimmed ? styles.moderationTextDimmed : ''}`}>
+              {displayModerationText}
+            </div>
           </>
         ) : (
           <div className={styles.noModeration}>Keine weiteren Moderationen</div>

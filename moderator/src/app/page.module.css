@@ -105,6 +105,12 @@
   max-width: 900px;
 }
 
+.moderationTextDimmed {
+  color: #64748b;
+  opacity: 0.45;
+  filter: grayscale(1);
+}
+
 .noModeration {
   color: #334155;
   font-size: 18px;
