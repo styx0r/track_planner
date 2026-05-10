@@ -180,6 +180,14 @@ export class MinioService {
     }
   }
 
+  async getInternalFileUrl(fileName: string): Promise<string> {
+    return this.minioClient.presignedGetObject(
+      this.bucketName,
+      fileName,
+      24 * 60 * 60
+    );
+  }
+
   private async createPublicGetUrl(fileName: string): Promise<string> {
     return this.publicMinioClient.presignedGetObject(
       this.bucketName,

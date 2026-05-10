@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database.service';
 import { MinioService } from '../music/minio.service';
 import { ModerationService } from '../moderation/moderation.service';
@@ -117,19 +117,19 @@ export class PlaylistService {
   private normalizeItems(items?: PlaylistItemInput[]): any[] {
     if (!items || items.length === 0) return [];
 
-    // Deduplicate TRACK items by music_uid; allow repeated MODERATION_TEXT items
-    const seenTracks = new Set<string>();
-    const unique: PlaylistItemInput[] = [];
     for (const item of items) {
       if (item.type === PlaylistItemType.TRACK) {
-        if (!item.music_uid) continue;
-        if (seenTracks.has(item.music_uid)) continue;
-        seenTracks.add(item.music_uid);
+        if (!item.music_uid) {
+          throw new BadRequestException('TRACK items must include music_uid');
+        }
       }
-      unique.push(item);
+
+      if (item.type === PlaylistItemType.MODERATION_TEXT && !item.moderation_text_uid) {
+        throw new BadRequestException('MODERATION_TEXT items must include moderation_text_uid');
+      }
     }
 
-    return unique
+    return [...items]
       .sort((a, b) => a.order - b.order)
       .map((item, index) => ({
         type: item.type,

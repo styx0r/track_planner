@@ -55,8 +55,7 @@ export class PlaybackService {
   constructor(
     private readonly playlistService: PlaylistService,
     private readonly musicService: MusicService,
-    // MinioService available for future use (e.g., direct file streaming)
-    _minioService: MinioService,
+    private readonly minioService: MinioService,
   ) {}
 
   /**
@@ -231,7 +230,7 @@ export class PlaybackService {
     // Schedule playback to start at the exact song start time
     this.playbackTimeout = setTimeout(async () => {
       try {
-        await this.startAudioPlayback(music.file_url!, music.file_name!);
+        await this.startAudioPlayback(await this.getPlaybackFileUrl(music), music.file_name || 'audio');
       } catch (error) {
         const msg = error instanceof Error ? error.message : 'Unknown error';
         this.logger.error(`Failed to start playback: ${msg}`);
@@ -258,6 +257,16 @@ export class PlaybackService {
       this.currentState.status = PlaybackStatus.IDLE;
       throw error;
     }
+  }
+
+  private async getPlaybackFileUrl(music: { file_name?: string; file_url?: string }): Promise<string> {
+    if (music.file_name) {
+      return this.minioService.getInternalFileUrl(music.file_name);
+    }
+    if (music.file_url) {
+      return music.file_url;
+    }
+    throw new Error('No audio file available for playback');
   }
 
   /**
@@ -437,8 +446,8 @@ export class PlaybackService {
     } else if (this.currentState.currentTrackUid) {
       // Temp file gone — re-download
       const music = await this.musicService.getMusicById(this.currentState.currentTrackUid);
-      if (music.file_url) {
-        await this.startAudioPlayback(music.file_url, music.file_name || '', positionMs);
+      if (music.file_name || music.file_url) {
+        await this.startAudioPlayback(await this.getPlaybackFileUrl(music), music.file_name || '', positionMs);
       }
     }
 
@@ -650,8 +659,8 @@ export class PlaybackService {
       await this.startPlayerFromFile(this.tempFilePath, clampedMs);
     } else {
       const music = await this.musicService.getMusicById(this.currentState.currentTrackUid);
-      if (music.file_url) {
-        await this.startAudioPlayback(music.file_url, music.file_name || '', clampedMs);
+      if (music.file_name || music.file_url) {
+        await this.startAudioPlayback(await this.getPlaybackFileUrl(music), music.file_name || '', clampedMs);
       }
     }
 

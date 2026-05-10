@@ -36,8 +36,11 @@ function findNextModeration(items: PlaylistItem[], currentIndex: number) {
 }
 
 function songsSinceLastModeration(items: PlaylistItem[], currentIndex: number): string[] {
+  const startIndex = items[currentIndex]?.type === PlaylistItemType.MODERATION_TEXT
+    ? currentIndex - 1
+    : currentIndex;
   const titles: string[] = [];
-  for (let i = currentIndex; i >= 0; i--) {
+  for (let i = startIndex; i >= 0; i--) {
     if (!items[i]) break;
     if (items[i].type === PlaylistItemType.MODERATION_TEXT) break;
     if (items[i].type === PlaylistItemType.TRACK) titles.unshift(items[i].music?.title ?? '?');
@@ -65,13 +68,16 @@ export default function ModeratorPage() {
 
   // When currently on a moderation item, show that. Otherwise look ahead for next moderation.
   const isCurrentlyModeration = playbackState.status === 'moderation';
+  const currentItem = playlistItems[currentItemIndex];
+  const activeModerationItem = currentItem?.type === PlaylistItemType.MODERATION_TEXT ? currentItem : null;
   const nextMod = isCurrentlyModeration ? null : findNextModeration(playlistItems, currentItemIndex);
 
   const displayModerationText = isCurrentlyModeration ? currentModerationText : nextMod?.moderation_text?.text;
   const displayModerationAuthor = isCurrentlyModeration ? currentModerationAuthor : nextMod?.moderation_text?.author;
 
   const recentSongs = songsSinceLastModeration(playlistItems, currentItemIndex);
-  const upcomingSongs = nextMod ? nextSongsAfterModeration(playlistItems, nextMod) : [];
+  const moderationContextItem = activeModerationItem ?? nextMod;
+  const upcomingSongs = moderationContextItem ? nextSongsAfterModeration(playlistItems, moderationContextItem) : [];
 
   if (!isConnected && isLoading) {
     return (

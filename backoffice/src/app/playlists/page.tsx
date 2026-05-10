@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   Box,
@@ -234,24 +234,18 @@ export default function PlaylistsPage() {
   const handleAddTrack = useCallback(() => {
     if (!trackToAdd) return;
     const musicItem = music.find((m) => m.uid === trackToAdd);
-    setPlaylistItems((prev) => {
-      if (prev.some((i) => i.type === 'TRACK' && i.music_uid === trackToAdd)) {
-        setSnackbar({ open: true, message: 'Track already in playlist', severity: 'error' });
-        return prev;
-      }
-      return [
-        ...prev,
-        {
-          type: 'TRACK',
-          order: prev.length,
-          music_uid: trackToAdd,
-          music: musicItem,
-          metronome_enabled_override: null,
-          localId: `new-track-${trackToAdd}-${Date.now()}`,
-          expanded: false,
-        },
-      ];
-    });
+    setPlaylistItems((prev) => [
+      ...prev,
+      {
+        type: 'TRACK',
+        order: prev.length,
+        music_uid: trackToAdd,
+        music: musicItem,
+        metronome_enabled_override: null,
+        localId: `new-track-${trackToAdd}-${Date.now()}`,
+        expanded: false,
+      },
+    ]);
     setTrackToAdd('');
   }, [trackToAdd, music]);
 
@@ -386,11 +380,6 @@ export default function PlaylistsPage() {
     }
   }, [loadPlaylists]);
 
-  const usedTrackUids = useMemo(
-    () => new Set(playlistItems.filter((i) => i.type === 'TRACK').map((i) => i.music_uid!)),
-    [playlistItems]
-  );
-
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
@@ -455,7 +444,7 @@ export default function PlaylistsPage() {
                           .sort((a, b) => a.order - b.order)
                           .map((item) => (
                             <ListItem
-                              key={item.type === 'TRACK' ? item.music_uid : `${item.moderation_text_uid}-${item.order}`}
+                              key={`${item.type}-${item.music_uid ?? item.moderation_text_uid}-${item.order}`}
                               disableGutters
                             >
                               {item.type === 'TRACK' ? (
@@ -669,7 +658,7 @@ export default function PlaylistsPage() {
                 onChange={(e) => setTrackToAdd(e.target.value as string)}
               >
                 {music.map((song) => (
-                  <MenuItem key={song.uid} value={song.uid} disabled={usedTrackUids.has(song.uid)}>
+                  <MenuItem key={song.uid} value={song.uid}>
                     {song.title} — {song.performer || song.author}
                   </MenuItem>
                 ))}
