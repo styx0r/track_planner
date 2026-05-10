@@ -13,6 +13,7 @@ import { MusicModule } from './music/music.module';
 import { PlaylistModule } from './playlist/playlist.module';
 import { PlaybackModule } from './playback/playback.module';
 import { ModerationModule } from './moderation/moderation.module';
+import { SnapshotModule } from './snapshot/snapshot.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { ModerationModule } from './moderation/moderation.module';
     PlaylistModule,
     PlaybackModule,
     ModerationModule,
+    SnapshotModule,
   ],
   providers: [AppResolver, DatabaseService, LightResolver, LightService],
 })

@@ -4,6 +4,7 @@ import { Client as MinioClient } from 'minio';
 import { v4 as uuidv4 } from 'uuid';
 import sharp from 'sharp';
 import * as path from 'path';
+import { Readable } from 'stream';
 
 // Minimal file type to avoid depending on Express types
 interface UploadedFile {
@@ -19,6 +20,13 @@ export interface SheetUploadResult {
   originalName: string;
   thumbnailName?: string;
   thumbnailUrl?: string;
+}
+
+export interface MinioObjectInfo {
+  name: string;
+  size: number;
+  lastModified?: Date;
+  etag?: string;
 }
 
 const THUMBNAIL_MAX_WIDTH = 200;
@@ -186,6 +194,39 @@ export class MinioService {
       fileName,
       24 * 60 * 60
     );
+  }
+
+  listObjects(): Promise<MinioObjectInfo[]> {
+    return new Promise((resolve, reject) => {
+      const objects: MinioObjectInfo[] = [];
+      const stream = this.minioClient.listObjectsV2(this.bucketName, '', true);
+
+      stream.on('data', (item) => {
+        if (!item.name) return;
+        objects.push({
+          name: item.name,
+          size: item.size ?? 0,
+          lastModified: item.lastModified,
+          etag: item.etag,
+        });
+      });
+      stream.on('error', reject);
+      stream.on('end', () => resolve(objects));
+    });
+  }
+
+  async getObjectStream(objectName: string): Promise<Readable> {
+    return this.minioClient.getObject(this.bucketName, objectName);
+  }
+
+  async putObject(objectName: string, data: Buffer): Promise<void> {
+    await this.minioClient.putObject(this.bucketName, objectName, data, data.length);
+  }
+
+  async clearBucket(): Promise<void> {
+    const objects = await this.listObjects();
+    if (objects.length === 0) return;
+    await this.minioClient.removeObjects(this.bucketName, objects.map((item) => item.name));
   }
 
   private async createPublicGetUrl(fileName: string): Promise<string> {
