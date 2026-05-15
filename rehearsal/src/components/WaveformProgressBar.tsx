@@ -17,7 +17,8 @@ const FALLBACK_WAVEFORM = Array.from({ length: NUM_BARS }, (_, i) =>
 const LOADING_BARS = Array.from({ length: NUM_BARS }, () => 0.28);
 
 interface WaveformProgressBarProps {
-  audioUrl: string | null;
+  audioUrl?: string | null;
+  waveformData?: number[] | null;
   durationMs: number;
   scheduledLocalStartTime: number | null;
   positionMs?: number;
@@ -27,6 +28,7 @@ interface WaveformProgressBarProps {
 
 export function WaveformProgressBar({
   audioUrl,
+  waveformData,
   durationMs,
   scheduledLocalStartTime,
   positionMs,
@@ -66,8 +68,13 @@ export function WaveformProgressBar({
     };
   }, [isPlaying, scheduledLocalStartTime, durationMs]);
 
-  // Load and decode waveform from audio file
+  // Use precomputed waveform data when available, else decode from audioUrl
   useEffect(() => {
+    if (waveformData && waveformData.length > 0) {
+      setWaveform(waveformData.slice(0, NUM_BARS));
+      return;
+    }
+
     if (!audioUrl) {
       setWaveform(FALLBACK_WAVEFORM);
       return;
@@ -120,7 +127,7 @@ export function WaveformProgressBar({
     })();
 
     return () => { cancelled = true; };
-  }, [audioUrl]);
+  }, [audioUrl, waveformData]);
 
   if (!durationMs) return null;
 

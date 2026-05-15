@@ -34,6 +34,7 @@ interface UsePlaybackReturn {
   connect: () => void;
   disconnect: () => void;
   resync: () => Promise<void>;
+  loadPlaylist: (playlistUid: string) => void;
   play: (playlistUid: string, trackIndex?: number, countInBeats?: number) => void;
   pause: () => void;
   resume: () => void;
@@ -194,6 +195,11 @@ export function usePlayback(): UsePlaybackReturn {
   }, [performSync]);
 
   // Playback controls
+  const loadPlaylist = useCallback((playlistUid: string) => {
+    if (!socketRef.current?.connected) return;
+    socketRef.current.emit(WS_EVENTS.LOAD_PLAYLIST, { playlistUid });
+  }, []);
+
   const play = useCallback((playlistUid: string, trackIndex: number = 0, countInBeats: number = 0) => {
     if (!socketRef.current?.connected) return;
     socketRef.current.emit(WS_EVENTS.PLAY, { playlistUid, trackIndex, countInBeats });
@@ -267,6 +273,7 @@ export function usePlayback(): UsePlaybackReturn {
     connect,
     disconnect,
     resync,
+    loadPlaylist,
     play,
     pause,
     resume,

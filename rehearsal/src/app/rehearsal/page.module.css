@@ -1,0 +1,484 @@
+/* ── Root layout: sidebar + main content area ── */
+.layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  grid-template-rows: 1fr auto 60px;
+  height: 100vh;
+  background: #0f0f1a;
+  overflow: hidden;
+}
+
+/* ── Sidebar ── */
+.sidebar {
+  grid-column: 1;
+  grid-row: 1 / 4;
+  display: flex;
+  flex-direction: column;
+  background: #0d0d18;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.sidebarHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  flex-shrink: 0;
+}
+
+.sidebarTitle {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #4f5f8f;
+}
+
+.changePlistBtn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: #64748b;
+  font-size: 14px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.changePlistBtn:hover {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.4);
+  color: #a5b4fc;
+}
+
+.sidebarList {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 0;
+}
+
+.sidebarList::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebarList::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebarList::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+}
+
+.sidebarItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  border-left: 3px solid transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+  font-family: inherit;
+}
+
+.sidebarItem:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.sidebarItemActive {
+  background: rgba(99, 102, 241, 0.12);
+  border-left-color: #6366f1;
+}
+
+.sidebarItemModeration {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.sidebarItemModeration:hover {
+  background: none;
+}
+
+.sidebarItemNum {
+  font-size: 11px;
+  font-weight: 700;
+  color: #4f5f8f;
+  min-width: 18px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.sidebarItemActive .sidebarItemNum {
+  color: #6366f1;
+}
+
+.sidebarItemLabel {
+  font-size: 13px;
+  color: #94a3b8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.3;
+}
+
+.sidebarItemActive .sidebarItemLabel {
+  color: #e2e8f0;
+  font-weight: 500;
+}
+
+/* ── Main content ── */
+.main {
+  grid-column: 2;
+  grid-row: 1;
+  overflow: hidden;
+  position: relative;
+  background: #0d0d1a;
+}
+
+.moderationContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 40px;
+  gap: 24px;
+  text-align: center;
+}
+
+.moderationAuthor {
+  font-size: 18px;
+  font-weight: 600;
+  color: #f59e0b;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.moderationText {
+  font-size: 26px;
+  font-weight: 500;
+  color: #f1f5f9;
+  line-height: 1.5;
+  max-width: 800px;
+  white-space: pre-wrap;
+}
+
+/* ── Controls bar ── */
+.controls {
+  grid-column: 2;
+  grid-row: 2;
+  display: grid;
+  grid-template-columns: 80px 1fr 80px;
+  align-items: center;
+  background: #16213e;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 8px 12px;
+  gap: 12px;
+  min-height: 80px;
+}
+
+.playPauseBtn {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  background: #22c55e;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 4px 16px rgba(34, 197, 94, 0.4);
+  font-family: inherit;
+}
+
+.playPauseBtn:hover:not(:disabled) {
+  background: #16a34a;
+  transform: scale(1.05);
+}
+
+.playPauseBtn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.playPauseBtn.activePlay {
+  background: #f59e0b;
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.35);
+}
+
+.playPauseBtn.activePlay:hover:not(:disabled) {
+  background: #d97706;
+}
+
+.stopBtn {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  background: #ef4444;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.4);
+  font-family: inherit;
+}
+
+.stopBtn:hover:not(:disabled) {
+  background: #dc2626;
+  transform: scale(1.05);
+}
+
+.stopBtn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.waveformPlaceholder {
+  flex: 1;
+}
+
+/* ── Footer ── */
+.footer {
+  grid-column: 2;
+  grid-row: 3;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  background: #111827;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 0 16px;
+  gap: 12px;
+}
+
+/* Metronome sound toggle */
+.soundToggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.soundBtn {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.12s ease;
+}
+
+.soundBtn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.soundBtnOn {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: rgba(99, 102, 241, 0.5);
+}
+
+.soundLabel {
+  font-size: 10px;
+  color: #4f5f8f;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  font-weight: 600;
+}
+
+/* Beat dots */
+.metronomeWrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.beatDots {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.beatDot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  transition: background 0.05s ease, box-shadow 0.05s ease;
+}
+
+.beatDot.beatAccent {
+  border-color: rgba(233, 69, 96, 0.4);
+  background: rgba(233, 69, 96, 0.1);
+}
+
+.beatDot.beatActive {
+  background: #e94560;
+  border-color: #e94560;
+  box-shadow: 0 0 10px rgba(233, 69, 96, 0.7);
+}
+
+.beatDot.beatAccent.beatActive {
+  background: #ff6b81;
+  border-color: #ff6b81;
+  box-shadow: 0 0 14px rgba(255, 107, 129, 0.8);
+}
+
+/* Footer right: BPM + clock */
+.footerRight {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  justify-content: flex-end;
+}
+
+.bpm {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.bpmValue {
+  font-size: 22px;
+  font-weight: 700;
+  color: #6366f1;
+  line-height: 1;
+  letter-spacing: 0.5px;
+}
+
+.bpmLabel {
+  font-size: 10px;
+  color: #4f5f8f;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.clockTime {
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+/* ── Playlist picker overlay ── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(4px);
+}
+
+.picker {
+  background: #1a1a2e;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 32px;
+  width: 480px;
+  max-height: 80vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pickerTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: #f1f5f9;
+  text-align: center;
+}
+
+.pickerEmpty {
+  text-align: center;
+  color: #4f5f8f;
+  font-size: 14px;
+  padding: 24px 0;
+}
+
+.pickerList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pickerItem {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 14px 18px;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.pickerItem:hover {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.5);
+}
+
+.pickerName {
+  font-size: 15px;
+  font-weight: 500;
+  color: #e2e8f0;
+}
+
+.pickerDesc {
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* ── Connecting screen ── */
+.connecting {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  color: #64748b;
+  font-size: 14px;
+  gap: 12px;
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(99, 102, 241, 0.3);
+  border-top-color: #6366f1;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Playlist } from './types';
+import { Playlist, PlaylistTrackSummary } from './types';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3333';
 const GRAPHQL_URL = `${BACKEND_URL}/graphql`;
@@ -44,6 +44,11 @@ const PLAYLIST_ITEMS_FRAGMENT = `
       uid
       title
       author
+      presentation_type
+      bpm
+      duration
+      waveform
+      time_signature
       sheets {
         uid
         file_name
@@ -85,12 +90,41 @@ const PLAYLIST_QUERY = `
   }
 `;
 
+const MUSIC_QUERY = `
+  query GetMusicById($uid: String!) {
+    getMusicById(uid: $uid) {
+      uid
+      title
+      author
+      presentation_type
+      bpm
+      duration
+      waveform
+      time_signature
+      file_url
+      sheets {
+        uid
+        file_name
+        original_name
+        url
+        order
+        mime_type
+        thumbnail_url
+      }
+    }
+  }
+`;
+
 interface PlaylistsData {
   playlists: Playlist[];
 }
 
 interface PlaylistData {
   playlist: Playlist;
+}
+
+interface MusicData {
+  getMusicById: PlaylistTrackSummary;
 }
 
 // Standalone fetch functions that don't cause re-renders
@@ -102,6 +136,11 @@ export async function fetchPlaylistsApi(): Promise<Playlist[]> {
 export async function fetchPlaylistApi(uid: string): Promise<Playlist> {
   const data = await graphqlRequest<PlaylistData>(PLAYLIST_QUERY, { uid });
   return data.playlist;
+}
+
+export async function fetchMusicApi(uid: string): Promise<PlaylistTrackSummary> {
+  const data = await graphqlRequest<MusicData>(MUSIC_QUERY, { uid });
+  return data.getMusicById;
 }
 
 // Hook for loading state (use sparingly to avoid re-render loops)
