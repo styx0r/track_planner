@@ -168,6 +168,7 @@ export default function RehearsalPage() {
   const now = useClock();
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [aCapellaStartTime, setACapellaStartTime] = useState<number | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   // Local playlist state — independent of server/FOH
   const [selectedPlaylist, setSelectedPlaylist] = useState<Playlist | null>(null);
@@ -305,21 +306,34 @@ export default function RehearsalPage() {
   // ── Rehearsal UI ────────────────────────────────────────────────────────────
 
   return (
-    <div className={styles.layout}>
+    <div className={`${styles.layout} ${sidebarOpen ? '' : styles.layoutCollapsed}`}>
 
       {/* ── Left sidebar ── */}
       <aside className={styles.sidebar}>
         <div className={styles.sidebarHeader}>
-          <span className={styles.sidebarTitle} title={selectedPlaylist.name}>
-            {selectedPlaylist.name}
-          </span>
-          <button
-            className={styles.changePlistBtn}
-            onClick={() => setShowPicker(true)}
-            title="Playlist wechseln"
-          >
-            ⇄
-          </button>
+          {sidebarOpen && (
+            <span className={styles.sidebarTitle} title={selectedPlaylist.name}>
+              {selectedPlaylist.name}
+            </span>
+          )}
+          <div className={styles.sidebarHeaderBtns}>
+            {sidebarOpen && (
+              <button
+                className={styles.changePlistBtn}
+                onClick={() => setShowPicker(true)}
+                title="Playlist wechseln"
+              >
+                ⇄
+              </button>
+            )}
+            <button
+              className={styles.collapseBtn}
+              onClick={() => setSidebarOpen((v) => !v)}
+              title={sidebarOpen ? 'Einklappen' : 'Ausklappen'}
+            >
+              {sidebarOpen ? '‹' : '›'}
+            </button>
+          </div>
         </div>
 
         <div className={styles.sidebarList}>
