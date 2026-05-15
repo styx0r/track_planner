@@ -79,7 +79,7 @@ interface Music {
   author: string;
   version?: string;
   presentation_type: PresentationType;
-  genre: Genre;
+  genre?: string;
   bpm?: number;
   metronome_offset?: number;
   metronome_default_enabled?: boolean;
@@ -99,6 +99,7 @@ interface MusicTableProps {
   rows: Music[];
   loading: boolean;
   currentlyPlaying: string | null;
+  validGenreNames: Set<string>;
   onPlayPause: (uid: string, fileUrl: string) => void;
   onEdit: (row: Music) => void;
   onDeleteMusic: (uid: string) => void;
@@ -126,28 +127,26 @@ const KEYS = [
   'b-Moll', 'f-Moll', 'c-Moll', 'g-Moll', 'd-Moll',
 ];
 
-enum Genre {
-  ROCK = 'ROCK',
-  POP = 'POP',
-  JAZZ = 'JAZZ',
-  CLASSICAL = 'CLASSICAL',
-  ELECTRONIC = 'ELECTRONIC',
-  HIP_HOP = 'HIP_HOP',
-  COUNTRY = 'COUNTRY',
-  BLUES = 'BLUES',
-  FOLK = 'FOLK',
-  OTHER = 'OTHER'
+interface GenreOption {
+  uid: string;
+  name: string;
+  order: number;
 }
+
+const GENRE_MANAGE_SENTINEL = '__manage_genres__';
 
 const ACCEPTED_SHEET_TYPES = '.pdf,.png,.jpg,.jpeg,.tiff,.tif';
 const IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/tiff', 'image/tif'];
 
 const normalizeText = (value: string) => value.replace(/[^a-z0-9]/gi, '').toLowerCase();
 
-const mapGenreFromMetadata = (value?: string | null): Genre | undefined => {
+const mapGenreFromMetadata = (
+  value: string | null | undefined,
+  genres: GenreOption[],
+): string | undefined => {
   if (!value) return undefined;
   const normalized = normalizeText(value);
-  return Object.values(Genre).find((genre) => normalizeText(genre) === normalized);
+  return genres.find((genre) => normalizeText(genre.name) === normalized)?.name;
 };
 
 const fileNameWithoutExtension = (fileName: string) => fileName.replace(/\.[^/.]+$/, '').trim();
@@ -161,7 +160,7 @@ interface CreateMusicInput {
   author: string;
   version?: string;
   presentation_type: PresentationType;
-  genre: Genre;
+  genre?: string;
   bpm?: number;
   metronome_offset?: number;
   metronome_default_enabled?: boolean;
@@ -182,7 +181,7 @@ const formatDuration = (seconds?: number): string => {
 interface SearchFilters {
   title?: string;
   author?: string;
-  genre?: Genre;
+  genre?: string;
   presentation_type?: PresentationType;
 }
 
@@ -193,7 +192,7 @@ interface EditMusicMetadata {
   author: string;
   version?: string;
   presentation_type: PresentationType;
-  genre: Genre;
+  genre?: string;
   bpm?: number;
   metronome_offset?: number;
   metronome_default_enabled?: boolean;
@@ -421,6 +420,7 @@ const MusicTable = memo(function MusicTable({
   rows,
   loading,
   currentlyPlaying,
+  validGenreNames,
   onPlayPause,
   onEdit,
   onDeleteMusic,
@@ -451,9 +451,13 @@ const MusicTable = memo(function MusicTable({
       field: 'genre',
       headerName: 'Genre',
       width: 120,
-      renderCell: (params) => (
-        <Chip label={params.value} size="small" color="primary" />
-      )
+      renderCell: (params) => {
+        const v = params.value as string | undefined;
+        if (!v || !validGenreNames.has(v)) {
+          return <Chip label="–" size="small" variant="outlined" />;
+        }
+        return <Chip label={v} size="small" color="primary" />;
+      }
     },
     {
       field: 'presentation_type',
@@ -512,7 +516,7 @@ const MusicTable = memo(function MusicTable({
         />
       ]
     }
-  ], [currentlyPlaying, onPlayPause, onEdit, onDeleteMusic]);
+  ], [currentlyPlaying, validGenreNames, onPlayPause, onEdit, onDeleteMusic, onDuplicate]);
 
   return (
     <Paper sx={{ height: 600, width: '100%' }}>
@@ -538,6 +542,7 @@ export default function MusicManagement() {
   const [loading, setLoading] = useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [genreManagerOpen, setGenreManagerOpen] = useState(false);
   const [selectedMusic, setSelectedMusic] = useState<Music | null>(null);
   const [editMetadata, setEditMetadata] = useState<EditMusicMetadata | null>(null);
   const [editLyrics, setEditLyrics] = useState('');
@@ -545,6 +550,9 @@ export default function MusicManagement() {
   const [searchFilters, setSearchFilters] = useState<SearchFilters>({});
   const [appliedFilters, setAppliedFilters] = useState<SearchFilters>({});
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+
+  const [genres, setGenres] = useState<GenreOption[]>([]);
+  const validGenreNames = useMemo(() => new Set(genres.map((g) => g.name)), [genres]);
 
   // Audio player state
   const [currentlyPlaying, setCurrentlyPlaying] = useState<string | null>(null);
@@ -556,7 +564,6 @@ export default function MusicManagement() {
     author: '',
     performer: 'Chor',
     presentation_type: PresentationType.A_CAPELLA,
-    genre: Genre.OTHER,
     time_signature: '4/4',
     key: '',
     metronome_default_enabled: true,
@@ -643,11 +650,72 @@ export default function MusicManagement() {
     loadMusic(searchFilters);
   }, [loadMusic, searchFilters]);
 
+  const loadGenres = useCallback(async () => {
+    try {
+      const response = await fetch('/api/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `query { genres { uid name order } }`,
+        }),
+      });
+      const data = await response.json();
+      if (data.errors) throw new Error(data.errors[0].message);
+      setGenres(data.data.genres);
+    } catch (error) {
+      setSnackbar({ open: true, message: `Error loading genres: ${error}`, severity: 'error' });
+    }
+  }, []);
+
+  useEffect(() => {
+    loadGenres();
+  }, [loadGenres]);
+
+  const createGenre = useCallback(async (name: string): Promise<GenreOption | null> => {
+    try {
+      const response = await fetch('/api/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `mutation CreateGenre($input: CreateGenreInput!) { createGenre(input: $input) { uid name order } }`,
+          variables: { input: { name } },
+        }),
+      });
+      const data = await response.json();
+      if (data.errors) throw new Error(data.errors[0].message);
+      const created: GenreOption = data.data.createGenre;
+      setGenres((prev) => [...prev, created].sort((a, b) => a.order - b.order || a.name.localeCompare(b.name)));
+      return created;
+    } catch (error) {
+      setSnackbar({ open: true, message: `Create genre failed: ${error}`, severity: 'error' });
+      return null;
+    }
+  }, []);
+
+  const deleteGenre = useCallback(async (uid: string) => {
+    try {
+      const response = await fetch('/api/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `mutation DeleteGenre($uid: ID!) { deleteGenre(uid: $uid) }`,
+          variables: { uid },
+        }),
+      });
+      const data = await response.json();
+      if (data.errors) throw new Error(data.errors[0].message);
+      setGenres((prev) => prev.filter((g) => g.uid !== uid));
+    } catch (error) {
+      setSnackbar({ open: true, message: `Delete genre failed: ${error}`, severity: 'error' });
+    }
+  }, []);
+
   const autoPopulateFromMetadata = useCallback(async (file: File) => {
     try {
       const metadata = await parseBlob(file);
       setUploadForm((prev) => {
         const updated = { ...prev };
+        updated.presentation_type = PresentationType.PLAYBACK;
         const derivedTitle = metadata.common.title || fileNameWithoutExtension(file.name);
         if (!prev.title && derivedTitle) {
           updated.title = derivedTitle;
@@ -662,8 +730,8 @@ export default function MusicManagement() {
         if (!prev.version && metadata.common.track?.no) {
           updated.version = metadata.common.track.no.toString();
         }
-        if (prev.genre === Genre.OTHER) {
-          const inferredGenre = mapGenreFromMetadata(metadata.common.genre?.[0]);
+        if (!prev.genre) {
+          const inferredGenre = mapGenreFromMetadata(metadata.common.genre?.[0], genres);
           if (inferredGenre) {
             updated.genre = inferredGenre;
           }
@@ -681,7 +749,7 @@ export default function MusicManagement() {
     } catch (error) {
       console.warn('Audio metadata extraction failed', error);
     }
-  }, []);
+  }, [genres]);
 
   const handleAudioFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] || null;
@@ -737,7 +805,6 @@ export default function MusicManagement() {
         author: '',
         performer: 'Chor',
         presentation_type: PresentationType.A_CAPELLA,
-        genre: Genre.OTHER,
         time_signature: '4/4',
         key: '',
         metronome_default_enabled: true,
@@ -951,7 +1018,7 @@ export default function MusicManagement() {
       author: row.author,
       version: row.version,
       presentation_type: row.presentation_type,
-      genre: row.genre,
+      genre: row.genre && validGenreNames.has(row.genre) ? row.genre : undefined,
       bpm: row.bpm,
       metronome_offset: row.metronome_offset,
       metronome_default_enabled: row.metronome_default_enabled ?? true,
@@ -963,7 +1030,7 @@ export default function MusicManagement() {
     setEditLyrics(row.lyrics || '');
     setEditSheets((row.sheets || []).map(toLocalSheet));
     setEditDialogOpen(true);
-  }, []);
+  }, [validGenreNames]);
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
@@ -1014,12 +1081,22 @@ export default function MusicManagement() {
               <Select
                 value={searchFilters.genre || ''}
                 label="Genre"
-                onChange={(e) => setSearchFilters({ ...searchFilters, genre: e.target.value as Genre })}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === GENRE_MANAGE_SENTINEL) {
+                    setGenreManagerOpen(true);
+                    return;
+                  }
+                  setSearchFilters({ ...searchFilters, genre: v || undefined });
+                }}
               >
                 <MenuItem value="">All</MenuItem>
-                {Object.values(Genre).map((genre) => (
-                  <MenuItem key={genre} value={genre}>{genre}</MenuItem>
+                {genres.map((g) => (
+                  <MenuItem key={g.uid} value={g.name}>{g.name}</MenuItem>
                 ))}
+                <MenuItem value={GENRE_MANAGE_SENTINEL} sx={{ fontStyle: 'italic', color: 'primary.main' }}>
+                  + Genres verwalten
+                </MenuItem>
               </Select>
             </FormControl>
           </Grid>
@@ -1056,6 +1133,7 @@ export default function MusicManagement() {
         rows={music}
         loading={loading}
         currentlyPlaying={currentlyPlaying}
+        validGenreNames={validGenreNames}
         onPlayPause={handlePlayPause}
         onEdit={handleEditRow}
         onDeleteMusic={handleDeleteMusic}
@@ -1131,13 +1209,24 @@ export default function MusicManagement() {
               <FormControl fullWidth>
                 <InputLabel>Genre</InputLabel>
                 <Select
-                  value={uploadForm.genre}
+                  value={uploadForm.genre || ''}
                   label="Genre"
-                  onChange={(e) => setUploadForm({ ...uploadForm, genre: e.target.value as Genre })}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === GENRE_MANAGE_SENTINEL) {
+                      setGenreManagerOpen(true);
+                      return;
+                    }
+                    setUploadForm({ ...uploadForm, genre: v || undefined });
+                  }}
                 >
-                  {Object.values(Genre).map((genre) => (
-                    <MenuItem key={genre} value={genre}>{genre}</MenuItem>
+                  <MenuItem value=""><em>–</em></MenuItem>
+                  {genres.map((g) => (
+                    <MenuItem key={g.uid} value={g.name}>{g.name}</MenuItem>
                   ))}
+                  <MenuItem value={GENRE_MANAGE_SENTINEL} sx={{ fontStyle: 'italic', color: 'primary.main' }}>
+                    + Genres verwalten
+                  </MenuItem>
                 </Select>
               </FormControl>
             </Grid>
@@ -1299,13 +1388,24 @@ export default function MusicManagement() {
                 <FormControl fullWidth>
                   <InputLabel>Genre</InputLabel>
                   <Select
-                    value={editMetadata.genre}
+                    value={editMetadata.genre || ''}
                     label="Genre"
-                    onChange={(e) => setEditMetadata((prev) => prev ? { ...prev, genre: e.target.value as Genre } : prev)}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === GENRE_MANAGE_SENTINEL) {
+                        setGenreManagerOpen(true);
+                        return;
+                      }
+                      setEditMetadata((prev) => prev ? { ...prev, genre: v || undefined } : prev);
+                    }}
                   >
-                    {Object.values(Genre).map((genre) => (
-                      <MenuItem key={genre} value={genre}>{genre}</MenuItem>
+                    <MenuItem value=""><em>–</em></MenuItem>
+                    {genres.map((g) => (
+                      <MenuItem key={g.uid} value={g.name}>{g.name}</MenuItem>
                     ))}
+                    <MenuItem value={GENRE_MANAGE_SENTINEL} sx={{ fontStyle: 'italic', color: 'primary.main' }}>
+                      + Genres verwalten
+                    </MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
@@ -1460,6 +1560,15 @@ export default function MusicManagement() {
         </DialogActions>
       </Dialog>
 
+      {/* Genre management dialog */}
+      <GenreManagerDialog
+        open={genreManagerOpen}
+        onClose={() => setGenreManagerOpen(false)}
+        genres={genres}
+        onCreate={createGenre}
+        onDelete={deleteGenre}
+      />
+
       {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
@@ -1471,5 +1580,91 @@ export default function MusicManagement() {
         </Alert>
       </Snackbar>
     </Container>
+  );
+}
+
+interface GenreManagerDialogProps {
+  open: boolean;
+  onClose: () => void;
+  genres: GenreOption[];
+  onCreate: (name: string) => Promise<GenreOption | null>;
+  onDelete: (uid: string) => Promise<void>;
+}
+
+function GenreManagerDialog({ open, onClose, genres, onCreate, onDelete }: GenreManagerDialogProps) {
+  const [newName, setNewName] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleCreate = async () => {
+    const trimmed = newName.trim();
+    if (!trimmed) return;
+    setSubmitting(true);
+    const created = await onCreate(trimmed);
+    setSubmitting(false);
+    if (created) setNewName('');
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>Genres verwalten</DialogTitle>
+      <DialogContent>
+        <Box sx={{ display: 'flex', gap: 1, mb: 2, mt: 1 }}>
+          <TextField
+            fullWidth
+            size="small"
+            label="Neues Genre"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                handleCreate();
+              }
+            }}
+          />
+          <Button
+            variant="contained"
+            startIcon={<Add />}
+            onClick={handleCreate}
+            disabled={submitting || !newName.trim()}
+          >
+            Anlegen
+          </Button>
+        </Box>
+
+        {genres.length === 0 ? (
+          <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
+            Noch keine Genres angelegt.
+          </Typography>
+        ) : (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            {genres.map((g) => (
+              <Box
+                key={g.uid}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  px: 1,
+                  py: 0.5,
+                  borderRadius: 1,
+                  '&:hover': { bgcolor: 'action.hover' },
+                }}
+              >
+                <Typography variant="body2">{g.name}</Typography>
+                <Tooltip title="Genre löschen">
+                  <IconButton size="small" color="error" onClick={() => onDelete(g.uid)}>
+                    <Delete fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            ))}
+          </Box>
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Schließen</Button>
+      </DialogActions>
+    </Dialog>
   );
 }

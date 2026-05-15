@@ -24,7 +24,8 @@ chmod +x "$HOME/.claude/anthropic_key_helper.sh"
 
 cat > "$HOME/.claude/settings.json" <<EOF
 {
-  "apiKeyHelper": "$HOME/.claude/anthropic_key_helper.sh"
+  "apiKeyHelper": "$HOME/.claude/anthropic_key_helper.sh",
+  "model": "claude-sonnet-4-6"
 }
 EOF
 

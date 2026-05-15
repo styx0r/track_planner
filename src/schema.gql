@@ -2,6 +2,10 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+input CreateGenreInput {
+  name: String!
+}
+
 input CreateModerationCategoryInput {
   name: String!
 }
@@ -19,7 +23,7 @@ input CreateMusicInput {
 
   """Duration in seconds"""
   duration: Int
-  genre: Genre!
+  genre: String
   key: String
   lyrics: String
   metronome_default_enabled: Boolean
@@ -45,17 +49,10 @@ A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date
 """
 scalar DateTime
 
-enum Genre {
-  BLUES
-  CLASSICAL
-  COUNTRY
-  ELECTRONIC
-  FOLK
-  HIP_HOP
-  JAZZ
-  OTHER
-  POP
-  ROCK
+type Genre {
+  name: String!
+  order: Float!
+  uid: ID!
 }
 
 type ModerationCategory {
@@ -94,7 +91,7 @@ type Music {
   duration: Int
   file_name: String
   file_url: String
-  genre: Genre!
+  genre: String
   key: String
   lyrics: String
   metronome_default_enabled: Boolean
@@ -117,16 +114,18 @@ type Music {
 
 input MusicSearchInput {
   author: String
-  genre: Genre
+  genre: String
   presentation_type: PresentationType
   title: String
 }
 
 type Mutation {
+  createGenre(input: CreateGenreInput!): Genre!
   createModerationCategory(input: CreateModerationCategoryInput!): ModerationCategory!
   createModerationText(input: CreateModerationTextInput!): ModerationText!
   createMusic(createMusicInput: CreateMusicInput!): Music!
   createPlaylist(createPlaylistInput: CreatePlaylistInput!): Playlist!
+  deleteGenre(uid: ID!): Boolean!
   deleteModerationCategory(uid: ID!): Boolean!
   deleteModerationText(uid: ID!): Boolean!
   deleteMusic(uid: String!): Boolean!
@@ -198,6 +197,7 @@ enum PresentationType {
 
 type Query {
   checkDbConnection: String!
+  genres: [Genre!]!
   getLightState: Int!
   getMusicById(uid: String!): Music!
   hello: String!
@@ -234,7 +234,7 @@ input UpdateMusicInput {
 
   """Duration in seconds"""
   duration: Int
-  genre: Genre
+  genre: String
   key: String
   lyrics: String
   metronome_default_enabled: Boolean

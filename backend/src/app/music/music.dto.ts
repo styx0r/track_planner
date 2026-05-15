@@ -16,22 +16,8 @@ export enum PresentationType {
   PLAYBACK = 'PLAYBACK',
 }
 
-export enum Genre {
-  ROCK = 'ROCK',
-  POP = 'POP',
-  JAZZ = 'JAZZ',
-  CLASSICAL = 'CLASSICAL',
-  ELECTRONIC = 'ELECTRONIC',
-  HIP_HOP = 'HIP_HOP',
-  COUNTRY = 'COUNTRY',
-  BLUES = 'BLUES',
-  FOLK = 'FOLK',
-  OTHER = 'OTHER',
-}
-
 // Register GraphQL enums
 registerEnumType(PresentationType, { name: 'PresentationType' });
-registerEnumType(Genre, { name: 'Genre' });
 
 @ObjectType()
 export class SheetMusic {
@@ -86,8 +72,8 @@ export class Music {
   @Field(() => PresentationType)
   presentation_type!: PresentationType;
 
-  @Field(() => Genre)
-  genre!: Genre;
+  @Field({ nullable: true })
+  genre?: string;
 
   @Field(() => Int, { nullable: true })
   bpm?: number;
@@ -150,9 +136,10 @@ export class CreateMusicInput {
   @IsEnum(PresentationType)
   presentation_type!: PresentationType;
 
-  @Field(() => Genre)
-  @IsEnum(Genre)
-  genre!: Genre;
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  genre?: string;
 
   @Field(() => Int, { nullable: true })
   @IsOptional()
@@ -226,10 +213,10 @@ export class UpdateMusicInput {
   @IsEnum(PresentationType)
   presentation_type?: PresentationType;
 
-  @Field(() => Genre, { nullable: true })
+  @Field({ nullable: true })
   @IsOptional()
-  @IsEnum(Genre)
-  genre?: Genre;
+  @IsString()
+  genre?: string;
 
   @Field(() => Number, { nullable: true })
   @IsOptional()
@@ -284,10 +271,10 @@ export class MusicSearchInput {
   @IsString()
   author?: string;
 
-  @Field(() => Genre, { nullable: true })
+  @Field({ nullable: true })
   @IsOptional()
-  @IsEnum(Genre)
-  genre?: Genre;
+  @IsString()
+  genre?: string;
 
   @Field(() => PresentationType, { nullable: true })
   @IsOptional()
