@@ -38,7 +38,7 @@ function formatDuration(ms: number | undefined) {
 export default function MixingDeskPage() {
   const {
     isConnected, isLoading, playbackState,
-    connect, startPerformance, loadPlaylist, resetProgram,
+    connect, startPerformance, loadPlaylist, resetProgram, setDisplayLock,
   } = usePlayback();
 
   const now = useClock();
@@ -83,6 +83,7 @@ export default function MixingDeskPage() {
     ? playlistItems
     : (selectedPlaylist?.items ?? []);
   const performanceStartTime = playbackState.performanceStartTime ?? null;
+  const displayLocked = playbackState.displayLocked ?? false;
   const performanceRunning = performanceStartTime !== null;
 
   const selectPlaylist = useCallback((uid: string) => {
@@ -142,6 +143,13 @@ export default function MixingDeskPage() {
           ) : (
             <span className={styles.elapsed}>–</span>
           )}
+          <button
+            className={`${styles.lockBtn} ${displayLocked ? styles.lockBtnActive : ''}`}
+            onClick={() => setDisplayLock(!displayLocked)}
+            title={displayLocked ? 'Auftrittsmodus entsperren' : 'Auftrittsmodus sperren'}
+          >
+            {displayLocked ? '🔒 Gesperrt' : '🔓 Sperren'}
+          </button>
           {activePlaylistUid && (
             <button
               className={styles.changePlaylistBtn}

@@ -34,6 +34,7 @@ export interface PlaybackState {
   currentModerationAuthor?: string;
   playlistItems?: PlaylistItem[];
   performanceStartTime?: number;
+  displayLocked?: boolean;
 }
 
 export interface MetronomeState {
@@ -108,6 +109,7 @@ export const WS_EVENTS = {
   METRONOME_TOGGLE: 'metronome:toggle',
   METRONOME_SET_BPM: 'metronome:setBpm',
   METRONOME_SET_COUNT_IN: 'metronome:setCountIn',
+  SET_DISPLAY_LOCK: 'display:setLock',
   LOAD_PLAYLIST: 'playback:loadPlaylist',
   RESET_PROGRAM: 'playback:resetProgram',
   START_PERFORMANCE: 'performance:start',

@@ -35,6 +35,7 @@ export interface PlaybackState {
   currentModerationAuthor?: string;
   playlistItems?: PlaylistItem[];
   performanceStartTime?: number;
+  displayLocked?: boolean;
 }
 
 export interface MetronomeState {

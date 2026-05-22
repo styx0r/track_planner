@@ -84,6 +84,7 @@ export default function ConductorPage() {
   useEffect(() => { connect(); }, [connect]);
 
   const activePlaylistUid = playbackState.playlistUid;
+  const displayLocked = playbackState.displayLocked ?? false;
 
   const { status, playlistItems = [], currentItemIndex: playbackItemIndex = 0,
     currentTrackTitle, currentModerationText, currentModerationAuthor,
@@ -194,6 +195,8 @@ export default function ConductorPage() {
 
   return (
     <div className={styles.layout}>
+      {displayLocked && <div className={styles.lockOverlay} />}
+
       {/* Header: prev / current / next */}
       <header className={styles.header}>
         <button

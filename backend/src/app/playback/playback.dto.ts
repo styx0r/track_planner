@@ -76,6 +76,7 @@ export class PlaybackState {
   currentModerationAuthor?: string;
   playlistItems?: any[]; // Full hydrated playlist items broadcast on playlist load
   performanceStartTime?: number; // Server timestamp set by mixing desk
+  displayLocked?: boolean; // Conductor display lock set by mixing desk
 }
 
 /**
@@ -135,6 +136,7 @@ export const WS_EVENTS = {
   METRONOME_SET_BPM: 'metronome:setBpm',
   METRONOME_SET_COUNT_IN: 'metronome:setCountIn',
   PLAY_TRACK: 'playback:playTrack',
+  SET_DISPLAY_LOCK: 'display:setLock',
   LOAD_PLAYLIST: 'playback:loadPlaylist',
   RESET_PROGRAM: 'playback:resetProgram',
   START_PERFORMANCE: 'performance:start',

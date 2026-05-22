@@ -41,6 +41,9 @@ export class PlaybackService {
   // Performance start time (set by mixing desk, persists across tracks)
   private performanceStartTime: number | null = null;
 
+  // Conductor display lock (set by mixing desk)
+  private displayLocked: boolean = false;
+
   // Broadcast callback set by the gateway after WebSocket server is ready
   private broadcastFn: ((event: string, data: any) => void) | null = null;
 
@@ -65,7 +68,13 @@ export class PlaybackService {
     return {
       ...this.currentState,
       performanceStartTime: this.performanceStartTime ?? undefined,
+      displayLocked: this.displayLocked,
     };
+  }
+
+  setDisplayLock(locked: boolean): PlaybackState {
+    this.displayLocked = locked;
+    return this.getState();
   }
 
   /**
