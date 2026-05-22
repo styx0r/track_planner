@@ -231,7 +231,7 @@ export default function ConductorPage() {
         )}
       </main>
 
-      {!isACapella && (
+      {!isACapella && !isModeration && (
         <div className={styles.controls}>
           <button
             className={styles.playBtn}
@@ -264,19 +264,22 @@ export default function ConductorPage() {
 
       {/* Footer: BPM, beat indicator, clock */}
       <footer className={styles.footer}>
-        <div className={styles.bpm}>
-          <span className={styles.bpmValue}>{effectiveBpm}</span>
-          <span className={styles.bpmLabel}>BPM</span>
-        </div>
-
-        <div className={styles.metronomeWrapper}>
-          <BeatDots
-            bpm={effectiveBpm}
-            enabled={isACapella || (metronomeState.enabled && isPlaying)}
-            timeSignature={effectiveTimeSignature}
-            startTime={isACapella ? aCapellaMetronomeStartTime : (isPlaying ? effectiveMetronomeStartTime : null)}
-          />
-        </div>
+        {!isModeration && (
+          <>
+            <div className={styles.bpm}>
+              <span className={styles.bpmValue}>{effectiveBpm}</span>
+              <span className={styles.bpmLabel}>BPM</span>
+            </div>
+            <div className={styles.metronomeWrapper}>
+              <BeatDots
+                bpm={effectiveBpm}
+                enabled={isACapella || (metronomeState.enabled && isPlaying)}
+                timeSignature={effectiveTimeSignature}
+                startTime={isACapella ? aCapellaMetronomeStartTime : (isPlaying ? effectiveMetronomeStartTime : null)}
+              />
+            </div>
+          </>
+        )}
 
         <div className={styles.clock}>
           {playbackState.performanceStartTime && (
