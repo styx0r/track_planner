@@ -37,6 +37,7 @@ interface UsePlaybackReturn {
   setMetronomeBpm: (bpm: number) => void;
   setCountIn: (beats: number) => void;
   startPerformance: () => void;
+  resetPerformance: () => void;
   loadPlaylist: (playlistUid: string) => void;
   resetProgram: () => void;
   setDisplayLock: (locked: boolean) => void;
@@ -198,6 +199,10 @@ export function usePlayback(): UsePlaybackReturn {
     socketRef.current?.connected && socketRef.current.emit(WS_EVENTS.START_PERFORMANCE);
   }, []);
 
+  const resetPerformance = useCallback(() => {
+    socketRef.current?.connected && socketRef.current.emit(WS_EVENTS.RESET_PERFORMANCE);
+  }, []);
+
   const loadPlaylist = useCallback((playlistUid: string) => {
     socketRef.current?.connected && socketRef.current.emit(WS_EVENTS.LOAD_PLAYLIST, { playlistUid });
   }, []);
@@ -242,6 +247,7 @@ export function usePlayback(): UsePlaybackReturn {
     setMetronomeBpm,
     setCountIn,
     startPerformance,
+    resetPerformance,
     loadPlaylist,
     resetProgram,
     setDisplayLock,

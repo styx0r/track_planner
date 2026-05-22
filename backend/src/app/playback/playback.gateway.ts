@@ -142,6 +142,12 @@ export class PlaybackGateway implements OnGatewayInit, OnGatewayConnection, OnGa
     }
   }
 
+  @SubscribeMessage(WS_EVENTS.RESET_PERFORMANCE)
+  handleResetPerformance(): void {
+    const state = this.playbackService.resetPerformance();
+    this.broadcastState(WS_EVENTS.PLAYBACK_STATE, state);
+  }
+
   @SubscribeMessage(WS_EVENTS.SET_DISPLAY_LOCK)
   handleSetDisplayLock(
     @MessageBody() data: { locked: boolean },

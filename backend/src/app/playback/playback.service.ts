@@ -80,6 +80,11 @@ export class PlaybackService {
   /**
    * Start the performance clock (called by mixing desk)
    */
+  resetPerformance(): PlaybackState {
+    this.performanceStartTime = null;
+    return this.getState();
+  }
+
   startPerformance(): void {
     this.performanceStartTime = Date.now();
     this.broadcast(WS_EVENTS.PERFORMANCE_STARTED, { performanceStartTime: this.performanceStartTime });

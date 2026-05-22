@@ -38,7 +38,7 @@ function formatDuration(ms: number | undefined) {
 export default function MixingDeskPage() {
   const {
     isConnected, isLoading, playbackState,
-    connect, startPerformance, loadPlaylist, resetProgram, setDisplayLock,
+    connect, startPerformance, resetPerformance, loadPlaylist, resetProgram, setDisplayLock,
   } = usePlayback();
 
   const now = useClock();
@@ -97,7 +97,7 @@ export default function MixingDeskPage() {
   }
 
   function confirmReset() {
-    startPerformance();
+    resetPerformance();
     setShowResetDialog(false);
   }
 
@@ -129,20 +129,15 @@ export default function MixingDeskPage() {
           >
             {performanceRunning ? '● Performance läuft' : '▶ Start Performance'}
           </button>
-          {performanceRunning && (
-            <span className={styles.resetHint}>klicken zum Zurücksetzen</span>
-          )}
+          {performanceRunning ? (
+            <>
+              <span className={styles.elapsed}>seit <span className={styles.elapsedValue}>{formatElapsed(performanceStartTime!, now)}</span></span>
+              <span className={styles.resetHint}>klicken zum Zurücksetzen</span>
+            </>
+          ) : null}
         </div>
 
         <div className={styles.rightInfo}>
-          {performanceRunning ? (
-            <>
-              <span className={styles.elapsed}>seit</span>
-              <span className={styles.elapsedValue}>{formatElapsed(performanceStartTime!, now)}</span>
-            </>
-          ) : (
-            <span className={styles.elapsed}>–</span>
-          )}
           <button
             className={`${styles.lockBtn} ${displayLocked ? styles.lockBtnActive : ''}`}
             onClick={() => setDisplayLock(!displayLocked)}
