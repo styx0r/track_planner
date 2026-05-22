@@ -113,12 +113,21 @@ export default function PlaylistsPage() {
   const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
 
+  const [expandedPlaylists, setExpandedPlaylists] = useState<Set<string>>(new Set());
   const [playlistDialogOpen, setPlaylistDialogOpen] = useState(false);
   const [editingPlaylist, setEditingPlaylist] = useState<Playlist | null>(null);
   const [playlistForm, setPlaylistForm] = useState({ name: '', description: '' });
   const [playlistItems, setPlaylistItems] = useState<PlaylistItemFormItem[]>([]);
   const [trackToAdd, setTrackToAdd] = useState('');
   const [moderationToAdd, setModerationToAdd] = useState('');
+
+  const togglePlaylistExpanded = useCallback((uid: string) => {
+    setExpandedPlaylists((prev) => {
+      const next = new Set(prev);
+      next.has(uid) ? next.delete(uid) : next.add(uid);
+      return next;
+    });
+  }, []);
 
   const closePlaylistDialog = useCallback(() => {
     setPlaylistDialogOpen(false);
@@ -431,10 +440,19 @@ export default function PlaylistsPage() {
               const trackCount = playlist.items.filter((i) => i.type === 'TRACK').length;
               const modCount = playlist.items.filter((i) => i.type === 'MODERATION_TEXT').length;
               const totalDuration = formatTotalDuration(playlist.items);
+              const isExpanded = expandedPlaylists.has(playlist.uid);
               return (
                 <React.Fragment key={playlist.uid}>
                   {idx > 0 && <Divider sx={{ my: 1.5 }} />}
                   <ListItem disableGutters>
+                    <IconButton
+                      size="small"
+                      onClick={() => togglePlaylistExpanded(playlist.uid)}
+                      disabled={playlist.items.length === 0}
+                      sx={{ mr: 1 }}
+                    >
+                      {isExpanded ? <ExpandLess fontSize="small" /> : <ExpandMore fontSize="small" />}
+                    </IconButton>
                     <ListItemText
                       primary={playlist.name}
                       secondary={[
@@ -453,6 +471,7 @@ export default function PlaylistsPage() {
                       </IconButton>
                     </Box>
                   </ListItem>
+                  <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                   {playlist.items.length > 0 && (
                     <Box sx={{ pl: 2 }}>
                       <List dense>
@@ -498,6 +517,7 @@ export default function PlaylistsPage() {
                       </List>
                     </Box>
                   )}
+                  </Collapse>
                 </React.Fragment>
               );
             })}
