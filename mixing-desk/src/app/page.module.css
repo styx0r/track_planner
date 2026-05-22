@@ -1,6 +1,6 @@
 .layout {
   display: grid;
-  grid-template-rows: 64px 1fr;
+  grid-template-rows: 80px 1fr;
   height: 100vh;
   background: #0f0f1a;
 }
