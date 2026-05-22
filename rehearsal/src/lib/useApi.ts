@@ -44,6 +44,7 @@ const PLAYLIST_ITEMS_FRAGMENT = `
       uid
       title
       author
+      version
       presentation_type
       bpm
       duration
@@ -96,6 +97,7 @@ const MUSIC_SEARCH_QUERY = `
       uid
       title
       author
+      version
       presentation_type
       bpm
       duration
@@ -121,6 +123,7 @@ const MUSIC_QUERY = `
       uid
       title
       author
+      version
       presentation_type
       bpm
       duration

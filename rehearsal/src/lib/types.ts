@@ -69,6 +69,7 @@ export interface PlaylistTrackSummary {
   uid: string;
   title: string;
   author: string;
+  version?: string;
   presentation_type?: PresentationType;
   bpm?: number;
   duration?: number;

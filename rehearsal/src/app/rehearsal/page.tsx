@@ -34,9 +34,12 @@ function formatClock(ts: number) {
   });
 }
 
-function getItemLabel(item: { type: string; music?: { title?: string }; moderation_text?: { author?: string } } | undefined): string {
+function getItemLabel(item: { type: string; music?: { title?: string; version?: string }; moderation_text?: { author?: string } } | undefined): string {
   if (!item) return '';
-  if (item.type === PlaylistItemType.TRACK) return item.music?.title ?? '';
+  if (item.type === PlaylistItemType.TRACK) {
+    const title = item.music?.title ?? '';
+    return item.music?.version ? `${title} (${item.music.version})` : title;
+  }
   if (item.type === PlaylistItemType.MODERATION_TEXT)
     return `Mod: ${item.moderation_text?.author ?? ''}`;
   return '';
@@ -204,7 +207,7 @@ function PlaylistPicker({
                   className={styles.pickerItem}
                   onClick={() => onPickSong(searchResults, song.uid)}
                 >
-                  <span className={styles.pickerName}>{song.title}</span>
+                  <span className={styles.pickerName}>{song.title}{song.version ? ` (${song.version})` : ''}</span>
                   <span className={styles.pickerDesc}>{song.author}</span>
                 </button>
               ))}

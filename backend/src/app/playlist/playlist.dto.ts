@@ -54,6 +54,9 @@ export class PlaylistTrackSummary {
   waveform?: number[];
 
   @Field({ nullable: true })
+  version?: string;
+
+  @Field({ nullable: true })
   time_signature?: string;
 
   @Field({ nullable: true })

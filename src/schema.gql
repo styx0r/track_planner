@@ -186,6 +186,7 @@ type PlaylistTrackSummary {
   time_signature: String
   title: String!
   uid: ID!
+  version: String
   waveform: [Float!]
 }
 

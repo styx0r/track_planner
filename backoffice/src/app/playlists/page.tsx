@@ -53,6 +53,7 @@ interface MusicSummary {
   uid: string;
   title: string;
   author: string;
+  version?: string;
   performer?: string;
   bpm?: number;
   duration?: number;
@@ -157,7 +158,7 @@ export default function PlaylistsPage() {
                   performer
                   music_uid
                   metronome_enabled_override
-                  music { uid title author performer bpm duration time_signature metronome_default_enabled }
+                  music { uid title author version performer bpm duration time_signature metronome_default_enabled }
                   moderation_text_uid
                   moderation_text { uid text author category }
                 }
@@ -185,7 +186,7 @@ export default function PlaylistsPage() {
           query: `
             query GetMusic {
               searchMusic(searchInput: null) {
-                uid title author performer bpm duration time_signature metronome_default_enabled
+                uid title author version performer bpm duration time_signature metronome_default_enabled
               }
             }
           `,
@@ -487,7 +488,7 @@ export default function PlaylistsPage() {
                                   primary={
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                       <MusicNote sx={{ fontSize: 14, color: 'text.secondary' }} />
-                                      {`${item.order + 1}. ${item.music?.title ?? 'Unknown track'}`}
+                                      {`${item.order + 1}. ${item.music?.title ?? 'Unknown track'}${item.music?.version ? ` (${item.music.version})` : ''}`}
                                     </Box>
                                   }
                                   secondary={[
@@ -575,7 +576,7 @@ export default function PlaylistsPage() {
                     <ListItemText
                       primary={
                         item.type === 'TRACK'
-                          ? `${index + 1}. ${item.music?.title ?? 'Unknown'}`
+                          ? `${index + 1}. ${item.music?.title ?? 'Unknown'}${item.music?.version ? ` (${item.music.version})` : ''}`
                           : `${index + 1}. ${item.moderation_text?.text?.slice(0, 60) ?? 'Moderation text'}…`
                       }
                       secondary={
@@ -702,7 +703,7 @@ export default function PlaylistsPage() {
               >
                 {music.map((song) => (
                   <MenuItem key={song.uid} value={song.uid}>
-                    {song.title} — {song.performer || song.author}
+                    {song.title}{song.version ? ` (${song.version})` : ''} — {song.performer || song.author}
                   </MenuItem>
                 ))}
               </Select>
