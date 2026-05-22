@@ -246,9 +246,7 @@ export default function RehearsalPage() {
     setACapellaStartTime(Date.now());
   }, [activeItemIndex, isACapella]);
 
-  const metronomeStartTime = isACapella
-    ? aCapellaStartTime
-    : scheduledLocalStartTime !== null ? scheduledLocalStartTime + metronomeOffset : null;
+  const metronomeStartTime = isACapella ? aCapellaStartTime : scheduledLocalStartTime;
   const metronomeIsActive = isACapella ? aCapellaStartTime !== null : (isPlaying || isCountIn);
 
   // Track numbers (for sidebar display)
