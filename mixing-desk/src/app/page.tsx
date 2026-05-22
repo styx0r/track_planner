@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePlayback } from '../lib/usePlayback';
 import { fetchPlaylistsApi } from '../lib/useApi';
+import { getLocalStartTime } from '../lib/timeSync';
 import { Playlist, PlaylistItemType } from '../lib/types';
 import styles from './page.module.css';
 
@@ -37,7 +38,7 @@ function formatDuration(ms: number | undefined) {
 
 export default function MixingDeskPage() {
   const {
-    isConnected, isLoading, playbackState,
+    isConnected, isLoading, playbackState, syncResult,
     connect, startPerformance, resetPerformance, loadPlaylist, resetProgram, setDisplayLock,
   } = usePlayback();
 
@@ -82,7 +83,10 @@ export default function MixingDeskPage() {
   const effectivePlaylistItems = playlistItems.length > 0
     ? playlistItems
     : (selectedPlaylist?.items ?? []);
-  const performanceStartTime = playbackState.performanceStartTime ?? null;
+  const rawPerformanceStartTime = playbackState.performanceStartTime ?? null;
+  const performanceStartTime = rawPerformanceStartTime !== null && syncResult
+    ? getLocalStartTime(rawPerformanceStartTime, syncResult.offset)
+    : rawPerformanceStartTime;
   const displayLocked = playbackState.displayLocked ?? false;
   const performanceRunning = performanceStartTime !== null;
 
