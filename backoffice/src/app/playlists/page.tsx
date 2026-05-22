@@ -55,6 +55,7 @@ interface MusicSummary {
   author: string;
   performer?: string;
   bpm?: number;
+  duration?: number;
   time_signature?: string;
   metronome_default_enabled?: boolean;
 }
@@ -90,6 +91,19 @@ interface Playlist {
   name: string;
   description?: string;
   items: PlaylistItemData[];
+}
+
+function formatTotalDuration(items: PlaylistItemData[]): string {
+  const totalSeconds = items
+    .filter((i) => i.type === 'TRACK')
+    .reduce((sum, i) => sum + (i.music?.duration ?? 0), 0);
+  if (totalSeconds === 0) return '';
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  return h > 0
+    ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+    : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
 export default function PlaylistsPage() {
@@ -134,7 +148,7 @@ export default function PlaylistsPage() {
                   performer
                   music_uid
                   metronome_enabled_override
-                  music { uid title author performer bpm time_signature metronome_default_enabled }
+                  music { uid title author performer bpm duration time_signature metronome_default_enabled }
                   moderation_text_uid
                   moderation_text { uid text author category }
                 }
@@ -162,7 +176,7 @@ export default function PlaylistsPage() {
           query: `
             query GetMusic {
               searchMusic(searchInput: null) {
-                uid title author performer bpm time_signature metronome_default_enabled
+                uid title author performer bpm duration time_signature metronome_default_enabled
               }
             }
           `,
@@ -416,6 +430,7 @@ export default function PlaylistsPage() {
             {playlists.map((playlist, idx) => {
               const trackCount = playlist.items.filter((i) => i.type === 'TRACK').length;
               const modCount = playlist.items.filter((i) => i.type === 'MODERATION_TEXT').length;
+              const totalDuration = formatTotalDuration(playlist.items);
               return (
                 <React.Fragment key={playlist.uid}>
                   {idx > 0 && <Divider sx={{ my: 1.5 }} />}
@@ -424,8 +439,9 @@ export default function PlaylistsPage() {
                       primary={playlist.name}
                       secondary={[
                         playlist.description,
-                        trackCount > 0 ? `${trackCount} track(s)` : null,
-                        modCount > 0 ? `${modCount} moderation text(s)` : null,
+                        trackCount > 0 ? `${trackCount} Song(s)` : null,
+                        modCount > 0 ? `${modCount} Moderation(en)` : null,
+                        totalDuration ? `Gesamt: ${totalDuration}` : null,
                       ].filter(Boolean).join(' • ')}
                     />
                     <Box sx={{ display: 'flex', gap: 0.5 }}>
@@ -647,6 +663,13 @@ export default function PlaylistsPage() {
               ))
             )}
           </List>
+
+          {/* Total duration */}
+          {playlistItems.some((i) => i.type === 'TRACK') && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 2, textAlign: 'right' }}>
+              Gesamtlaufzeit: <strong>{formatTotalDuration(playlistItems)}</strong>
+            </Typography>
+          )}
 
           {/* Add track */}
           <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
