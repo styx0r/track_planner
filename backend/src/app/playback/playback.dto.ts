@@ -134,6 +134,7 @@ export const WS_EVENTS = {
   METRONOME_TOGGLE: 'metronome:toggle',
   METRONOME_SET_BPM: 'metronome:setBpm',
   METRONOME_SET_COUNT_IN: 'metronome:setCountIn',
+  PLAY_TRACK: 'playback:playTrack',
   LOAD_PLAYLIST: 'playback:loadPlaylist',
   RESET_PROGRAM: 'playback:resetProgram',
   START_PERFORMANCE: 'performance:start',

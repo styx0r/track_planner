@@ -2,12 +2,13 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { usePlayback } from '../../lib/usePlayback';
-import { fetchPlaylistsApi, fetchPlaylistApi } from '../../lib/useApi';
+import { fetchPlaylistsApi, fetchPlaylistApi, fetchMusicSearchApi } from '../../lib/useApi';
 import {
   PlaybackStatus,
   PlaylistItemType,
   PresentationType,
   Playlist,
+  PlaylistTrackSummary,
 } from '../../lib/types';
 import { SheetViewer } from '../../components/SheetViewer';
 import { WaveformProgressBar } from '../../components/WaveformProgressBar';
@@ -122,27 +123,94 @@ function PlaylistPicker({
   playlists,
   loading,
   onPick,
+  onPickSong,
 }: {
   playlists: Playlist[];
   loading: boolean;
   onPick: (pl: Playlist) => void;
+  onPickSong: (songs: PlaylistTrackSummary[], clickedUid: string) => void;
 }) {
+  const [tab, setTab] = useState<'playlists' | 'search'>('playlists');
+  const [query, setQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<PlaylistTrackSummary[]>([]);
+  const [searching, setSearching] = useState(false);
+
+  useEffect(() => {
+    if (!query.trim()) { setSearchResults([]); return; }
+    setSearching(true);
+    const t = setTimeout(() => {
+      fetchMusicSearchApi(query)
+        .then((r) => { setSearchResults(r); setSearching(false); })
+        .catch(() => setSearching(false));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [query]);
+
   return (
     <div className={styles.overlay}>
       <div className={styles.picker}>
         <div className={styles.pickerTitle}>Playlist auswählen</div>
-        {loading && <div className={styles.pickerEmpty}>Lade Playlists…</div>}
-        {!loading && playlists.length === 0 && (
-          <div className={styles.pickerEmpty}>Keine Playlists vorhanden</div>
-        )}
-        <div className={styles.pickerList}>
-          {playlists.map((pl) => (
-            <button key={pl.uid} className={styles.pickerItem} onClick={() => onPick(pl)}>
-              <span className={styles.pickerName}>{pl.name}</span>
-              {pl.description && <span className={styles.pickerDesc}>{pl.description}</span>}
-            </button>
-          ))}
+
+        <div className={styles.pickerTabs}>
+          <button
+            className={`${styles.pickerTab} ${tab === 'playlists' ? styles.pickerTabActive : ''}`}
+            onClick={() => setTab('playlists')}
+          >
+            Playlists
+          </button>
+          <button
+            className={`${styles.pickerTab} ${tab === 'search' ? styles.pickerTabActive : ''}`}
+            onClick={() => setTab('search')}
+          >
+            Song suchen
+          </button>
         </div>
+
+        {tab === 'playlists' && (
+          <>
+            {loading && <div className={styles.pickerEmpty}>Lade Playlists…</div>}
+            {!loading && playlists.length === 0 && (
+              <div className={styles.pickerEmpty}>Keine Playlists vorhanden</div>
+            )}
+            <div className={styles.pickerList}>
+              {playlists.map((pl) => (
+                <button key={pl.uid} className={styles.pickerItem} onClick={() => onPick(pl)}>
+                  <span className={styles.pickerName}>{pl.name}</span>
+                  {pl.description && <span className={styles.pickerDesc}>{pl.description}</span>}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+
+        {tab === 'search' && (
+          <>
+            <input
+              className={styles.searchInput}
+              type="text"
+              placeholder="Titel, Artist oder Genre…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              autoFocus
+            />
+            {searching && <div className={styles.pickerEmpty}>Suche…</div>}
+            {!searching && query.trim() && searchResults.length === 0 && (
+              <div className={styles.pickerEmpty}>Keine Songs gefunden</div>
+            )}
+            <div className={styles.pickerList}>
+              {searchResults.map((song) => (
+                <button
+                  key={song.uid}
+                  className={styles.pickerItem}
+                  onClick={() => onPickSong(searchResults, song.uid)}
+                >
+                  <span className={styles.pickerName}>{song.title}</span>
+                  <span className={styles.pickerDesc}>{song.author}</span>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -159,6 +227,7 @@ export default function RehearsalPage() {
     countInStartTime,
     connect,
     play,
+    playTrack,
     pause,
     resume,
     stop,
@@ -191,18 +260,37 @@ export default function RehearsalPage() {
   // Fetch full playlist details on selection
   const handlePickPlaylist = useCallback((pl: Playlist) => {
     setShowPicker(false);
-    // Fetch full data (items include bpm, waveform, time_signature)
     fetchPlaylistApi(pl.uid)
       .then(setSelectedPlaylist)
       .catch(() => setSelectedPlaylist(pl));
   }, []);
 
+  // Build virtual search playlist and play the clicked song
+  const handlePickSong = useCallback((songs: PlaylistTrackSummary[], clickedUid: string) => {
+    setShowPicker(false);
+    const virtual: Playlist = {
+      uid: '__search__',
+      name: 'Suchergebnis',
+      description: '',
+      creation_timestamp: '',
+      update_timestamp: '',
+      items: songs.map((song, idx) => ({
+        type: PlaylistItemType.TRACK,
+        order: idx,
+        music_uid: song.uid,
+        music: song,
+      })),
+    };
+    setSelectedPlaylist(virtual);
+    playTrack(clickedUid, 0);
+  }, [playTrack]);
 
   // Derive state from playback
   const {
     status,
     playlistUid: serverPlaylistUid,
     currentItemIndex: serverItemIndex = 0,
+    currentTrackUid: serverTrackUid,
     metronomeOffset = 0,
     waveform,
     audioUrl,
@@ -217,11 +305,17 @@ export default function RehearsalPage() {
   const isCountIn = status === PlaybackStatus.COUNT_IN;
   const isPlaybackActive = isPlaying || isPaused || isCountIn || status === PlaybackStatus.LOADING;
 
-  // Active item index: use server index only when the server has our playlist loaded
-  const serverMatchesLocal = selectedPlaylist !== null && serverPlaylistUid === selectedPlaylist.uid;
-  const activeItemIndex = serverMatchesLocal ? serverItemIndex : -1;
+  const isSearchPlaylist = selectedPlaylist?.uid === '__search__';
 
+  // Active item index: server index for real playlists, track-uid match for search playlists
+  const serverMatchesLocal = selectedPlaylist !== null && serverPlaylistUid === selectedPlaylist.uid;
   const localItems = selectedPlaylist?.items ?? [];
+  const activeItemIndex = serverMatchesLocal
+    ? serverItemIndex
+    : (isSearchPlaylist && serverTrackUid
+      ? localItems.findIndex((item) => item.music_uid === serverTrackUid)
+      : -1);
+
   const currentLocalItem = localItems[activeItemIndex] ?? null;
   const localMusic = currentLocalItem?.type === PlaylistItemType.TRACK ? currentLocalItem.music : null;
 
@@ -268,15 +362,31 @@ export default function RehearsalPage() {
 
   const handleSidebarClick = useCallback((trackIdx: number) => {
     if (!selectedPlaylist) return;
-    play(selectedPlaylist.uid, trackIdx, 0);
-  }, [selectedPlaylist, play]);
+    if (isSearchPlaylist) {
+      let count = 0;
+      for (const item of localItems) {
+        if (item.type === PlaylistItemType.TRACK) {
+          if (count === trackIdx && item.music_uid) { playTrack(item.music_uid, 0); return; }
+          count++;
+        }
+      }
+    } else {
+      play(selectedPlaylist.uid, trackIdx, 0);
+    }
+  }, [selectedPlaylist, isSearchPlaylist, localItems, play, playTrack]);
 
   const handlePlayPause = useCallback(() => {
     if (!selectedPlaylist) return;
     if (isPaused) { resume(); return; }
     if (isPlaying || isCountIn) { pause(); return; }
+    if (isSearchPlaylist) {
+      const item = currentLocalItem ?? localItems.find((i) => i.type === PlaylistItemType.TRACK);
+      if (item?.music_uid) playTrack(item.music_uid, 0);
+      return;
+    }
     if (!isModeration) play(selectedPlaylist.uid, Math.max(0, currentTrackIdx), 0);
-  }, [selectedPlaylist, isPaused, isPlaying, isCountIn, isModeration, resume, pause, play, currentTrackIdx]);
+  }, [selectedPlaylist, isPaused, isPlaying, isCountIn, isModeration, isSearchPlaylist,
+      currentLocalItem, localItems, resume, pause, play, playTrack, currentTrackIdx]);
 
   // ── Loading screen ──────────────────────────────────────────────────────────
 
@@ -297,6 +407,7 @@ export default function RehearsalPage() {
         playlists={availablePlaylists}
         loading={loadingPlaylists}
         onPick={handlePickPlaylist}
+        onPickSong={handlePickSong}
       />
     );
   }
@@ -366,7 +477,7 @@ export default function RehearsalPage() {
         )}
       </main>
 
-      {/* ── Controls bar (hidden for A Capella, same as Auftrittsmodus) ── */}
+      {/* ── Controls bar (hidden for A Capella) ── */}
       {!isACapella && (
         <div className={styles.controls}>
           <button

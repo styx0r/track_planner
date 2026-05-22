@@ -36,6 +36,7 @@ interface UsePlaybackReturn {
   resync: () => Promise<void>;
   loadPlaylist: (playlistUid: string) => void;
   play: (playlistUid: string, trackIndex?: number, countInBeats?: number) => void;
+  playTrack: (musicUid: string, positionMs?: number) => void;
   pause: () => void;
   resume: () => void;
   stop: () => void;
@@ -205,6 +206,11 @@ export function usePlayback(): UsePlaybackReturn {
     socketRef.current.emit(WS_EVENTS.PLAY, { playlistUid, trackIndex, countInBeats });
   }, []);
 
+  const playTrack = useCallback((musicUid: string, positionMs: number = 0) => {
+    if (!socketRef.current?.connected) return;
+    socketRef.current.emit(WS_EVENTS.PLAY_TRACK, { musicUid, positionMs });
+  }, []);
+
   const pause = useCallback(() => {
     if (!socketRef.current?.connected) return;
     socketRef.current.emit(WS_EVENTS.PAUSE);
@@ -275,6 +281,7 @@ export function usePlayback(): UsePlaybackReturn {
     resync,
     loadPlaylist,
     play,
+    playTrack,
     pause,
     resume,
     seek,

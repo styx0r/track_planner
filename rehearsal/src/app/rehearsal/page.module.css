@@ -467,6 +467,59 @@
   padding: 24px 0;
 }
 
+.pickerTabs {
+  display: flex;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  padding: 3px;
+}
+
+.pickerTab {
+  flex: 1;
+  padding: 7px 12px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  font-family: inherit;
+}
+
+.pickerTab:hover {
+  color: #94a3b8;
+}
+
+.pickerTabActive {
+  background: rgba(99, 102, 241, 0.2);
+  color: #a5b4fc;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: #e2e8f0;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s ease;
+  box-sizing: border-box;
+}
+
+.searchInput::placeholder {
+  color: #4f5f8f;
+}
+
+.searchInput:focus {
+  border-color: rgba(99, 102, 241, 0.5);
+}
+
 .pickerList {
   display: flex;
   flex-direction: column;

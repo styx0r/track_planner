@@ -142,6 +142,21 @@ export class PlaybackGateway implements OnGatewayInit, OnGatewayConnection, OnGa
     }
   }
 
+  @SubscribeMessage(WS_EVENTS.PLAY_TRACK)
+  async handlePlayTrack(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { musicUid: string; positionMs?: number },
+  ): Promise<void> {
+    try {
+      const state = await this.playbackService.playTrack(data.musicUid, data.positionMs ?? 0);
+      this.broadcastState(WS_EVENTS.PLAYBACK_STARTED, state);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`PlayTrack error: ${message}`);
+      client.emit(WS_EVENTS.PLAYBACK_ERROR, { message });
+    }
+  }
+
   /**
    * Pause playback command
    */

@@ -242,6 +242,64 @@ export class PlaybackService {
     return this.getState();
   }
 
+  async playTrack(musicUid: string, positionMs: number = 0): Promise<PlaybackState> {
+    await this.stop();
+
+    const music = await this.musicService.getMusicById(musicUid);
+    if (!music) throw new NotFoundException('Music not found');
+
+    const bpm = music.bpm || this.metronomeState.bpm;
+    const effectiveCountInBeats = this.defaultCountInBeats;
+    const beatDurationMs = 60000 / bpm;
+    const countInStartTime = this.calculateSyncedStartTime(500);
+    const countInDurationMs = effectiveCountInBeats * beatDurationMs;
+    const songStartTime = effectiveCountInBeats > 0
+      ? countInStartTime + countInDurationMs
+      : countInStartTime;
+
+    this.currentPlaylist = null;
+    this.currentItemIndex = 0;
+
+    this.currentState = {
+      status: effectiveCountInBeats > 0 ? PlaybackStatus.COUNT_IN : PlaybackStatus.LOADING,
+      playlistUid: undefined,
+      currentTrackIndex: 0,
+      currentItemIndex: 0,
+      playlistItems: [],
+      currentTrackUid: musicUid,
+      currentTrackTitle: music.title,
+      currentTrackAuthor: music.author,
+      currentTrackPerformer: (music as any).performer || 'Chor',
+      bpm,
+      timeSignature: (music as any).time_signature || '4/4',
+      metronomeOffset: (music as any).metronome_offset || 0,
+      scheduledStartTime: songStartTime,
+      countInStartTime: effectiveCountInBeats > 0 ? countInStartTime : undefined,
+      countInBeats: effectiveCountInBeats > 0 ? effectiveCountInBeats : undefined,
+      sheets: (music as any).sheets || [],
+      audioUrl: music.file_url || undefined,
+      durationMs: music.duration ? music.duration * 1000 : undefined,
+      waveform: Array.isArray((music as any).waveform) ? (music as any).waveform : undefined,
+    };
+
+    this.metronomeState.bpm = bpm;
+    this.metronomeState.startTime = songStartTime + ((music as any).metronome_offset || 0);
+    this.metronomeState.countInBeats = effectiveCountInBeats;
+
+    const delayUntilSongStart = songStartTime - Date.now();
+    this.playbackTimeout = setTimeout(async () => {
+      try {
+        await this.startAudioPlayback(await this.getPlaybackFileUrl(music), music.file_name || 'audio', positionMs);
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : 'Unknown error';
+        this.logger.error(`Failed to start playback: ${msg}`);
+        this.currentState.status = PlaybackStatus.IDLE;
+      }
+    }, delayUntilSongStart);
+
+    return this.getState();
+  }
+
   /**
    * Start actual audio playback using external player
    */
