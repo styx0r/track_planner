@@ -11,6 +11,96 @@
   inset: 0;
   background: #000;
   z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pinCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  background: #16213e;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  padding: 36px 40px;
+  width: 280px;
+}
+
+.pinTitle {
+  font-size: 20px;
+  font-weight: 700;
+  color: #f1f5f9;
+  letter-spacing: 0.5px;
+}
+
+.pinInput {
+  width: 100%;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px;
+  color: #f1f5f9;
+  font-size: 20px;
+  font-family: inherit;
+  letter-spacing: 4px;
+  padding: 10px 14px;
+  text-align: center;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease;
+}
+
+.pinInput:focus {
+  border-color: rgba(99,102,241,0.6);
+}
+
+.pinInputError {
+  border-color: rgba(239,68,68,0.6) !important;
+  animation: shake 0.3s ease;
+}
+
+.pinError {
+  font-size: 13px;
+  color: #f87171;
+}
+
+.pinBtn {
+  width: 100%;
+  background: #6366f1;
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 10px;
+  transition: background 0.15s ease;
+}
+
+.pinBtn:hover {
+  background: #4f46e5;
+}
+
+.lockBtn {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.2);
+  font-size: 11px;
+  padding: 2px 4px;
+  cursor: pointer;
+  line-height: 1;
+  transition: color 0.15s ease;
+}
+
+.lockBtn:hover {
+  color: rgba(255,255,255,0.5);
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  75% { transform: translateX(6px); }
 }
 
 /* ── Header: prev / current / next ── */

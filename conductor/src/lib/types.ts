@@ -125,6 +125,7 @@ export const WS_EVENTS = {
   LOAD_PLAYLIST: 'playback:loadPlaylist',
   START_PERFORMANCE: 'performance:start',
   GET_STATE: 'playback:getState',
+  SET_DISPLAY_LOCK: 'display:setLock',
 
   // Server -> Client
   TIME_SYNC_RESPONSE: 'time:sync:response',

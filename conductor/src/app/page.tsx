@@ -74,12 +74,27 @@ export default function ConductorPage() {
   const {
     isConnected, isLoading, playbackState, metronomeState,
     scheduledLocalStartTime,
-    connect, play, stop, next, previous,
+    connect, play, stop, next, previous, setDisplayLock,
   } = usePlayback();
 
   const now = useClock();
   const [localTrackDetails, setLocalTrackDetails] = useState<PlaylistTrackSummary | null>(null);
   const [aCapellaMetronomeStartTime, setACapellaMetronomeStartTime] = useState<number | null>(null);
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState(false);
+
+  const CORRECT_PIN = process.env.NEXT_PUBLIC_CONDUCTOR_PIN ?? '1234';
+
+  function handlePinSubmit() {
+    if (pinInput === CORRECT_PIN) {
+      setDisplayLock(false);
+      setPinInput('');
+      setPinError(false);
+    } else {
+      setPinError(true);
+      setPinInput('');
+    }
+  }
 
   useEffect(() => { connect(); }, [connect]);
 
@@ -195,7 +210,26 @@ export default function ConductorPage() {
 
   return (
     <div className={styles.layout}>
-      {displayLocked && <div className={styles.lockOverlay} />}
+      {displayLocked && (
+        <div className={styles.lockOverlay}>
+          <div className={styles.pinCard}>
+            <div className={styles.pinTitle}>🔒 Gesperrt</div>
+            <input
+              className={`${styles.pinInput} ${pinError ? styles.pinInputError : ''}`}
+              type="password"
+              inputMode="numeric"
+              maxLength={10}
+              placeholder="PIN eingeben"
+              value={pinInput}
+              autoFocus
+              onChange={(e) => { setPinInput(e.target.value); setPinError(false); }}
+              onKeyDown={(e) => e.key === 'Enter' && handlePinSubmit()}
+            />
+            {pinError && <div className={styles.pinError}>Falscher PIN</div>}
+            <button className={styles.pinBtn} onClick={handlePinSubmit}>Entsperren</button>
+          </div>
+        </div>
+      )}
 
       {/* Header: prev / current / next */}
       <header className={styles.header}>
@@ -291,6 +325,9 @@ export default function ConductorPage() {
             </span>
           )}
           <span className={styles.clockTime} suppressHydrationWarning>{formatClock(now)}</span>
+          <button className={styles.lockBtn} onClick={() => setDisplayLock(true)} title="Ansicht sperren">
+            🔒
+          </button>
         </div>
       </footer>
     </div>

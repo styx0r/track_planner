@@ -38,6 +38,7 @@ interface UsePlaybackReturn {
   setCountIn: (beats: number) => void;
   startPerformance: () => void;
   loadPlaylist: (playlistUid: string) => void;
+  setDisplayLock: (locked: boolean) => void;
 }
 
 export function usePlayback(): UsePlaybackReturn {
@@ -202,6 +203,10 @@ export function usePlayback(): UsePlaybackReturn {
     socketRef.current?.connected && socketRef.current.emit(WS_EVENTS.LOAD_PLAYLIST, { playlistUid });
   }, []);
 
+  const setDisplayLock = useCallback((locked: boolean) => {
+    socketRef.current?.connected && socketRef.current.emit(WS_EVENTS.SET_DISPLAY_LOCK, { locked });
+  }, []);
+
   useEffect(() => {
     return () => {
       socketRef.current?.disconnect();
@@ -235,5 +240,6 @@ export function usePlayback(): UsePlaybackReturn {
     setCountIn,
     startPerformance,
     loadPlaylist,
+    setDisplayLock,
   };
 }
