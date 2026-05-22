@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePlayback } from '../lib/usePlayback';
 import { fetchPlaylistsApi } from '../lib/useApi';
 import { getLocalStartTime } from '../lib/timeSync';
-import { Playlist, PlaylistItemType } from '../lib/types';
+import { Playlist, PlaylistItemType, PresentationType } from '../lib/types';
 import styles from './page.module.css';
 
 function useClock() {
@@ -30,11 +30,15 @@ function formatElapsed(startTs: number, now: number) {
     : `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
 }
 
-function formatDuration(ms: number | undefined) {
-  if (!ms) return '';
-  const s = Math.floor(ms / 1000);
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+function formatPresentationType(type: PresentationType | undefined): string {
+  switch (type) {
+    case PresentationType.A_CAPELLA: return 'A Cappella';
+    case PresentationType.LIVE_PIANO: return 'Live-Piano';
+    case PresentationType.PLAYBACK: return 'Playback';
+    default: return '';
+  }
 }
+
 
 export default function MixingDeskPage() {
   const {
@@ -202,7 +206,7 @@ export default function MixingDeskPage() {
             : `Moderation: ${item.moderation_text?.author ?? ''}`;
 
           const meta = isTrack
-            ? formatDuration(item.music ? undefined : undefined)
+            ? formatPresentationType(item.music?.presentation_type)
             : item.moderation_text?.category ?? '';
 
           return (
