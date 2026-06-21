@@ -207,14 +207,16 @@
   background: rgba(255,255,255,0.02);
 }
 
-.rowCurrent {
-  background: rgba(99,102,241,0.12) !important;
-  border-left: 3px solid #6366f1;
+.rowCurrentPlayback {
+  background: rgba(239,68,68,0.10) !important;
+  border-left: 3px solid #ef4444;
   padding-left: 17px;
 }
 
-.rowModeration {
-  background: rgba(245,158,11,0.06);
+.rowCurrentACapella {
+  background: rgba(34,197,94,0.10) !important;
+  border-left: 3px solid #22c55e;
+  padding-left: 17px;
 }
 
 .rowModerationCurrent {
@@ -244,8 +246,25 @@
   padding: 0 12px;
 }
 
-.rowCurrent .rowTitle {
-  color: #a5b4fc;
+.rowTypePlayback .rowTitle {
+  color: #f87171;
+}
+
+.rowTypeACapella .rowTitle {
+  color: #4ade80;
+}
+
+.rowTypeModeration .rowTitle {
+  color: #f59e0b;
+}
+
+.rowCurrentPlayback .rowTitle {
+  color: #fca5a5;
+  font-weight: 600;
+}
+
+.rowCurrentACapella .rowTitle {
+  color: #86efac;
   font-weight: 600;
 }
 
@@ -254,8 +273,24 @@
   font-weight: 600;
 }
 
-.rowModeration .rowTitle {
+.iconPlayback {
+  color: #ef4444;
+}
+
+.iconACapella {
+  color: #22c55e;
+}
+
+.iconModeration {
   color: #f59e0b;
+}
+
+.rowCurrentPlayback .rowProgressFill {
+  background: linear-gradient(90deg, #ef4444, #f87171);
+}
+
+.rowCurrentACapella .rowProgressFill {
+  background: linear-gradient(90deg, #22c55e, #4ade80);
 }
 
 .rowDuration {

@@ -212,11 +212,16 @@ export default function MixingDeskPage() {
           const isTrack = item.type === PlaylistItemType.TRACK;
           const isMod = item.type === PlaylistItemType.MODERATION_TEXT;
           const isCurrent = idx === currentItemIndex;
+          const isACapella = isTrack && item.music?.presentation_type === PresentationType.A_CAPELLA;
 
           let rowClass = styles.row;
-          if (isCurrent && isTrack) rowClass += ` ${styles.rowCurrent}`;
+          if (isACapella) rowClass += ` ${styles.rowTypeACapella}`;
+          else if (isTrack) rowClass += ` ${styles.rowTypePlayback}`;
+          else if (isMod) rowClass += ` ${styles.rowTypeModeration}`;
+
+          if (isCurrent && isTrack && isACapella) rowClass += ` ${styles.rowCurrentACapella}`;
+          else if (isCurrent && isTrack) rowClass += ` ${styles.rowCurrentPlayback}`;
           else if (isCurrent && isMod) rowClass += ` ${styles.rowModerationCurrent}`;
-          else if (isMod) rowClass += ` ${styles.rowModeration}`;
 
           const title = isTrack
             ? (item.music?.title ?? '?')
@@ -233,7 +238,7 @@ export default function MixingDeskPage() {
               ref={isCurrent ? currentRowRef : null}
             >
               <span className={styles.rowNum}>{idx + 1}</span>
-              <span className={styles.rowIcon}>{isMod ? '🎤' : item.music?.presentation_type === PresentationType.A_CAPELLA ? '🎹' : '♪'}</span>
+              <span className={`${styles.rowIcon} ${isACapella ? styles.iconACapella : isMod ? styles.iconModeration : styles.iconPlayback}`}>{isMod ? '🎤' : isACapella ? '🎹' : '♪'}</span>
               <span className={styles.rowTitle}>{title}</span>
               <span className={styles.rowDuration}>{isTrack && item.music?.duration ? formatDuration(item.music.duration) : ''}</span>
               <span className={styles.rowMeta}>{meta}</span>
