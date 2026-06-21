@@ -195,10 +195,10 @@
 
 .row {
   display: grid;
-  grid-template-columns: 40px 36px 1fr auto;
+  grid-template-columns: 40px 36px 1fr auto auto;
   align-items: center;
   gap: 0;
-  padding: 10px 20px;
+  padding: 10px 20px 8px;
   border-bottom: 1px solid rgba(255,255,255,0.04);
   transition: background 0.1s ease;
 }
@@ -258,11 +258,37 @@
   color: #f59e0b;
 }
 
+.rowDuration {
+  font-size: 11px;
+  color: #475569;
+  text-align: right;
+  white-space: nowrap;
+  padding-right: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
 .rowMeta {
   font-size: 11px;
   color: #475569;
   text-align: right;
   white-space: nowrap;
+}
+
+.rowProgress {
+  grid-column: 1 / -1;
+  height: 3px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 2px;
+  align-self: end;
+}
+
+.rowProgressFill {
+  height: 100%;
+  background: linear-gradient(90deg, #6366f1, #818cf8);
+  border-radius: 2px;
+  transition: width 1s linear;
 }
 
 /* ── Status strip ── */

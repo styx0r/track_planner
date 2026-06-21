@@ -70,6 +70,7 @@ export interface PlaylistTrackSummary {
   title: string;
   author: string;
   presentation_type?: PresentationType;
+  duration?: number;
   sheets?: SheetMusicItem[];
 }
 

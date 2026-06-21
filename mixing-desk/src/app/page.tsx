@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePlayback } from '../lib/usePlayback';
 import { fetchPlaylistsApi } from '../lib/useApi';
 import { getLocalStartTime } from '../lib/timeSync';
-import { Playlist, PlaylistItemType, PresentationType } from '../lib/types';
+import { Playlist, PlaylistItemType, PlaybackStatus, PresentationType } from '../lib/types';
 import styles from './page.module.css';
 
 function useClock() {
@@ -28,6 +28,12 @@ function formatElapsed(startTs: number, now: number) {
   return h > 0
     ? `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
     : `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+}
+
+function formatDuration(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
 }
 
 function formatPresentationType(type: PresentationType | undefined): string {
@@ -93,6 +99,17 @@ export default function MixingDeskPage() {
     : rawPerformanceStartTime;
   const displayLocked = playbackState.displayLocked ?? false;
   const performanceRunning = performanceStartTime !== null;
+
+  const isPlaying = playbackState.status === PlaybackStatus.PLAYING;
+  const localScheduledStartTime = playbackState.scheduledStartTime && syncResult
+    ? getLocalStartTime(playbackState.scheduledStartTime, syncResult.offset)
+    : null;
+  const currentPositionMs = isPlaying && localScheduledStartTime !== null
+    ? Math.max(0, now - localScheduledStartTime)
+    : (playbackState.positionMs ?? 0);
+  const progressPct = playbackState.durationMs && playbackState.durationMs > 0
+    ? Math.min(100, (currentPositionMs / playbackState.durationMs) * 100)
+    : 0;
 
   const selectPlaylist = useCallback((uid: string) => {
     setSelectedPlaylistUid(uid);
@@ -218,7 +235,13 @@ export default function MixingDeskPage() {
               <span className={styles.rowNum}>{idx + 1}</span>
               <span className={styles.rowIcon}>{isMod ? '🎤' : item.music?.presentation_type === PresentationType.A_CAPELLA ? '🎹' : '♪'}</span>
               <span className={styles.rowTitle}>{title}</span>
+              <span className={styles.rowDuration}>{isTrack && item.music?.duration ? formatDuration(item.music.duration) : ''}</span>
               <span className={styles.rowMeta}>{meta}</span>
+              {isCurrent && isTrack && !!playbackState.durationMs && (
+                <div className={styles.rowProgress}>
+                  <div className={styles.rowProgressFill} style={{ width: `${progressPct}%` }} />
+                </div>
+              )}
             </div>
           );
         })}

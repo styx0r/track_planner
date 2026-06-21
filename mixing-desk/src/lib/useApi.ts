@@ -44,6 +44,8 @@ const PLAYLIST_ITEMS_FRAGMENT = `
       uid
       title
       author
+      presentation_type
+      duration
       sheets {
         uid
         file_name
