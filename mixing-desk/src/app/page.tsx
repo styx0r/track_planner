@@ -216,7 +216,7 @@ export default function MixingDeskPage() {
               ref={isCurrent ? currentRowRef : null}
             >
               <span className={styles.rowNum}>{idx + 1}</span>
-              <span className={styles.rowIcon}>{isTrack ? '♪' : '🎤'}</span>
+              <span className={styles.rowIcon}>{isMod ? '🎤' : item.music?.presentation_type === PresentationType.A_CAPELLA ? '🎹' : '♪'}</span>
               <span className={styles.rowTitle}>{title}</span>
               <span className={styles.rowMeta}>{meta}</span>
             </div>
