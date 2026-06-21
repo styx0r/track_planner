@@ -63,10 +63,10 @@ function BeatDots({ bpm, enabled, timeSignature, startTime }: {
   );
 }
 
-function getItemLabel(item: { type: string; music?: { title?: string }; moderation_text?: { author?: string } } | undefined): string {
+function getItemLabel(item: { type: string; music?: { title?: string }; performer?: string; moderation_text?: { author?: string } } | undefined): string {
   if (!item) return '';
   if (item.type === PlaylistItemType.TRACK) return item.music?.title ?? '';
-  if (item.type === PlaylistItemType.MODERATION_TEXT) return `Moderation: ${item.moderation_text?.author ?? ''}`;
+  if (item.type === PlaylistItemType.MODERATION_TEXT) return `Moderation: ${item.performer ?? ''}`;
   return '';
 }
 
@@ -181,9 +181,8 @@ export default function ConductorPage() {
   }, [activePlaylistUid, currentItemIndex, effectivePlaylistItems.length, goNext, goPrevious]);
 
   const displayTitle = isModeration
-    ? `Moderation: ${currentModerationAuthor ?? currentModerationFallback?.moderation_text?.author ?? ''}`
+    ? `Moderation: ${currentModerationAuthor ?? currentModerationFallback?.performer ?? ''}`
     : (currentTrackTitle ?? fallbackMusic?.title ?? '–');
-  const displayModerationAuthor = currentModerationAuthor ?? currentModerationFallback?.moderation_text?.author;
   const displayModerationText = currentModerationText ?? currentModerationFallback?.moderation_text?.text;
   const effectiveSheets = sheets.length > 0 ? sheets : (fallbackMusic?.sheets ?? []);
 
@@ -260,7 +259,6 @@ export default function ConductorPage() {
       <main className={styles.main}>
         {isModeration ? (
           <div className={styles.moderationContent}>
-            <div className={styles.moderationAuthor}>{displayModerationAuthor}</div>
             <div className={styles.moderationText}>{displayModerationText}</div>
           </div>
         ) : (

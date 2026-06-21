@@ -34,14 +34,14 @@ function formatClock(ts: number) {
   });
 }
 
-function getItemLabel(item: { type: string; music?: { title?: string; version?: string }; moderation_text?: { author?: string } } | undefined): string {
+function getItemLabel(item: { type: string; music?: { title?: string; version?: string }; performer?: string; moderation_text?: { author?: string } } | undefined): string {
   if (!item) return '';
   if (item.type === PlaylistItemType.TRACK) {
     const title = item.music?.title ?? '';
     return item.music?.version ? `${title} (${item.music.version})` : title;
   }
   if (item.type === PlaylistItemType.MODERATION_TEXT)
-    return `Mod: ${item.moderation_text?.author ?? ''}`;
+    return `Mod: ${item.performer ?? ''}`;
   return '';
 }
 
@@ -335,8 +335,6 @@ export default function RehearsalPage() {
   const effectiveSheets = sheets.length > 0 ? sheets : (localMusic?.sheets ?? []);
 
   const displayModerationText = playbackState.currentModerationText ?? currentLocalItem?.moderation_text?.text;
-  const displayModerationAuthor = playbackState.currentModerationAuthor ?? currentLocalItem?.moderation_text?.author;
-
   // A Capella: start visual metronome on track change
   useEffect(() => {
     if (!isACapella) { setACapellaStartTime(null); return; }
@@ -472,7 +470,6 @@ export default function RehearsalPage() {
       <main className={styles.main}>
         {isModeration ? (
           <div className={styles.moderationContent}>
-            <div className={styles.moderationAuthor}>{displayModerationAuthor}</div>
             <div className={styles.moderationText}>{displayModerationText}</div>
           </div>
         ) : (

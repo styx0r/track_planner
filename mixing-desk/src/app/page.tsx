@@ -203,7 +203,7 @@ export default function MixingDeskPage() {
 
           const title = isTrack
             ? (item.music?.title ?? '?')
-            : `Moderation: ${item.moderation_text?.author ?? ''}`;
+            : item.performer ? `Moderation: ${item.performer}` : 'Moderation';
 
           const meta = isTrack
             ? formatPresentationType(item.music?.presentation_type)

@@ -99,8 +99,8 @@ export default function ModeratorPage() {
     ? (currentModerationText ?? displayModerationItem?.moderation_text?.text)
     : displayModerationItem?.moderation_text?.text;
   const displayModerationAuthor = isCurrentlyModeration
-    ? (currentModerationAuthor ?? displayModerationItem?.moderation_text?.author)
-    : displayModerationItem?.moderation_text?.author;
+    ? (currentModerationAuthor ?? displayModerationItem?.performer)
+    : displayModerationItem?.performer;
 
   const recentSongs = songsBeforeModeration(playlistItems, displayModerationIndex);
   const upcomingSongs = songsAfterModeration(playlistItems, displayModerationIndex);

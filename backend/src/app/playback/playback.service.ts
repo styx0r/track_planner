@@ -674,7 +674,7 @@ export class PlaybackService {
         status: shouldPlay ? PlaybackStatus.MODERATION : PlaybackStatus.IDLE,
         currentItemIndex: itemIndex,
         currentModerationText: item.moderation_text?.text,
-        currentModerationAuthor: item.moderation_text?.author,
+        currentModerationAuthor: item.performer,
         currentTrackIndex: undefined,
         currentTrackUid: undefined,
         currentTrackTitle: undefined,
