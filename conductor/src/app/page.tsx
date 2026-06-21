@@ -85,15 +85,25 @@ export default function ConductorPage() {
 
   const CORRECT_PIN = process.env.NEXT_PUBLIC_CONDUCTOR_PIN ?? '1234';
 
-  function handlePinSubmit() {
-    if (pinInput === CORRECT_PIN) {
-      setDisplayLock(false);
-      setPinInput('');
-      setPinError(false);
-    } else {
-      setPinError(true);
-      setPinInput('');
+  function handleNumpadDigit(d: string) {
+    if (pinInput.length >= CORRECT_PIN.length) return;
+    const next = pinInput + d;
+    setPinInput(next);
+    setPinError(false);
+    if (next.length === CORRECT_PIN.length) {
+      if (next === CORRECT_PIN) {
+        setDisplayLock(false);
+        setPinInput('');
+      } else {
+        setPinError(true);
+        setTimeout(() => { setPinInput(''); setPinError(false); }, 700);
+      }
     }
+  }
+
+  function handleNumpadDelete() {
+    setPinInput(prev => prev.slice(0, -1));
+    setPinError(false);
   }
 
   useEffect(() => { connect(); }, [connect]);
@@ -213,19 +223,20 @@ export default function ConductorPage() {
         <div className={styles.lockOverlay}>
           <div className={styles.pinCard}>
             <div className={styles.pinTitle}>🔒 Gesperrt</div>
-            <input
-              className={`${styles.pinInput} ${pinError ? styles.pinInputError : ''}`}
-              type="password"
-              inputMode="numeric"
-              maxLength={10}
-              placeholder="PIN eingeben"
-              value={pinInput}
-              autoFocus
-              onChange={(e) => { setPinInput(e.target.value); setPinError(false); }}
-              onKeyDown={(e) => e.key === 'Enter' && handlePinSubmit()}
-            />
+            <div className={`${styles.pinDots} ${pinError ? styles.pinDotsError : ''}`}>
+              {Array.from({ length: CORRECT_PIN.length }, (_, i) => (
+                <span key={i} className={`${styles.pinDot} ${i < pinInput.length ? styles.pinDotFilled : ''}`} />
+              ))}
+            </div>
             {pinError && <div className={styles.pinError}>Falscher PIN</div>}
-            <button className={styles.pinBtn} onClick={handlePinSubmit}>Entsperren</button>
+            <div className={styles.numpad}>
+              {['1','2','3','4','5','6','7','8','9'].map(d => (
+                <button key={d} className={styles.numpadBtn} onClick={() => handleNumpadDigit(d)}>{d}</button>
+              ))}
+              <button className={`${styles.numpadBtn} ${styles.numpadBtnDelete}`} onClick={handleNumpadDelete}>⌫</button>
+              <button className={styles.numpadBtn} onClick={() => handleNumpadDigit('0')}>0</button>
+              <div />
+            </div>
           </div>
         </div>
       )}

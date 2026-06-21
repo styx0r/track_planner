@@ -20,12 +20,12 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 20px;
   background: #16213e;
   border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 16px;
-  padding: 36px 40px;
-  width: 280px;
+  border-radius: 20px;
+  padding: 36px 32px;
+  width: 320px;
 }
 
 .pinTitle {
@@ -35,51 +35,75 @@
   letter-spacing: 0.5px;
 }
 
-.pinInput {
-  width: 100%;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.15);
-  border-radius: 8px;
-  color: #f1f5f9;
-  font-size: 20px;
-  font-family: inherit;
-  letter-spacing: 4px;
-  padding: 10px 14px;
-  text-align: center;
-  outline: none;
-  box-sizing: border-box;
-  transition: border-color 0.15s ease;
+.pinDots {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  padding: 8px 0;
 }
 
-.pinInput:focus {
-  border-color: rgba(99,102,241,0.6);
+.pinDot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.25);
+  background: transparent;
+  transition: background 0.1s ease, border-color 0.1s ease;
 }
 
-.pinInputError {
-  border-color: rgba(239,68,68,0.6) !important;
-  animation: shake 0.3s ease;
+.pinDotFilled {
+  background: #6366f1;
+  border-color: #6366f1;
+}
+
+.pinDotsError {
+  animation: shake 0.35s ease;
+}
+
+.pinDotsError .pinDotFilled {
+  background: #ef4444;
+  border-color: #ef4444;
 }
 
 .pinError {
   font-size: 13px;
   color: #f87171;
+  min-height: 18px;
 }
 
-.pinBtn {
+.numpad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
   width: 100%;
-  background: #6366f1;
-  border: none;
-  border-radius: 8px;
-  color: white;
-  font-family: inherit;
-  font-size: 15px;
-  font-weight: 600;
-  padding: 10px;
-  transition: background 0.15s ease;
 }
 
-.pinBtn:hover {
-  background: #4f46e5;
+.numpadBtn {
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  color: #f1f5f9;
+  font-family: inherit;
+  font-size: 26px;
+  font-weight: 500;
+  padding: 16px 0;
+  cursor: pointer;
+  transition: background 0.1s ease;
+  line-height: 1;
+}
+
+.numpadBtn:hover {
+  background: rgba(255,255,255,0.14);
+}
+
+.numpadBtn:active {
+  background: rgba(255,255,255,0.22);
+  transform: scale(0.95);
+}
+
+.numpadBtnDelete {
+  color: #94a3b8;
+  font-size: 22px;
 }
 
 .lockBtn {
