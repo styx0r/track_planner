@@ -85,16 +85,16 @@
 .lockBtn {
   background: none;
   border: none;
-  color: rgba(255,255,255,0.2);
-  font-size: 11px;
-  padding: 2px 4px;
+  color: rgba(255,255,255,0.25);
+  font-size: 26px;
+  padding: 0;
   cursor: pointer;
   line-height: 1;
   transition: color 0.15s ease;
 }
 
 .lockBtn:hover {
-  color: rgba(255,255,255,0.5);
+  color: rgba(255,255,255,0.6);
 }
 
 @keyframes shake {
@@ -289,6 +289,12 @@
   border-top: 1px solid rgba(255,255,255,0.06);
   padding: 10px 16px;
   min-height: 60px;
+}
+
+.footerLeft {
+  display: flex;
+  align-items: center;
+  gap: 14px;
 }
 
 .bpm {

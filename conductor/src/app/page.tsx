@@ -299,21 +299,27 @@ export default function ConductorPage() {
 
       {/* Footer: BPM, beat indicator, clock */}
       <footer className={styles.footer}>
-        {!isModeration && (
-          <>
+        <div className={styles.footerLeft}>
+          <button className={styles.lockBtn} onClick={() => setDisplayLock(true)} title="Ansicht sperren">
+            🔒
+          </button>
+          {!isModeration && (
             <div className={styles.bpm}>
               <span className={styles.bpmValue}>{effectiveBpm}</span>
               <span className={styles.bpmLabel}>BPM</span>
             </div>
-            <div className={styles.metronomeWrapper}>
-              <BeatDots
-                bpm={effectiveBpm}
-                enabled={isACapella || (metronomeState.enabled && isPlaying)}
-                timeSignature={effectiveTimeSignature}
-                startTime={isACapella ? aCapellaMetronomeStartTime : (isPlaying ? effectiveMetronomeStartTime : null)}
-              />
-            </div>
-          </>
+          )}
+        </div>
+
+        {!isModeration && (
+          <div className={styles.metronomeWrapper}>
+            <BeatDots
+              bpm={effectiveBpm}
+              enabled={isACapella || (metronomeState.enabled && isPlaying)}
+              timeSignature={effectiveTimeSignature}
+              startTime={isACapella ? aCapellaMetronomeStartTime : (isPlaying ? effectiveMetronomeStartTime : null)}
+            />
+          </div>
         )}
 
         <div className={styles.clock}>
@@ -323,9 +329,6 @@ export default function ConductorPage() {
             </span>
           )}
           <span className={styles.clockTime} suppressHydrationWarning>{formatClock(now)}</span>
-          <button className={styles.lockBtn} onClick={() => setDisplayLock(true)} title="Ansicht sperren">
-            🔒
-          </button>
         </div>
       </footer>
     </div>
