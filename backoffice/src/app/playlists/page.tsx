@@ -30,6 +30,7 @@ import {
   ToggleButtonGroup,
   Collapse,
   Autocomplete,
+  createFilterOptions,
 } from '@mui/material';
 import {
   ArrowBack,
@@ -99,6 +100,19 @@ interface Playlist {
   description?: string;
   items: PlaylistItemData[];
 }
+
+const PRESENTATION_LABELS: Record<string, string> = {
+  A_CAPELLA: 'A Capella',
+  LIVE_PIANO: 'Live-Piano',
+  PLAYBACK: 'Playback',
+};
+
+// Search by title, version, performer, author AND presentation type — even though
+// the dropdown displays the presentation type instead of the artist.
+const musicSearchFilter = createFilterOptions<MusicSummary>({
+  stringify: (s) =>
+    `${s.title} ${s.version ?? ''} ${s.performer ?? ''} ${s.author ?? ''} ${s.presentation_type ? PRESENTATION_LABELS[s.presentation_type] : ''}`,
+});
 
 function isPauseModeration(item: { type: string; moderation_text?: { text?: string } }): boolean {
   return item.type === 'MODERATION_TEXT'
@@ -532,7 +546,7 @@ export default function PlaylistsPage() {
                                     </Box>
                                   }
                                   secondary={[
-                                    item.performer || item.music?.performer || item.music?.author,
+                                    item.music?.presentation_type ? PRESENTATION_LABELS[item.music.presentation_type] : null,
                                     item.metronome_enabled_override !== undefined && item.metronome_enabled_override !== null
                                       ? `Metronom: ${item.metronome_enabled_override ? 'An' : 'Aus'}`
                                       : null,
@@ -636,10 +650,10 @@ export default function PlaylistsPage() {
                           : `${nums[index]}. ${item.moderation_text?.text?.slice(0, 60) ?? 'Moderation text'}…`
                       }
                       secondary={
-                        item.performer
-                          ? item.performer
-                          : item.type === 'TRACK'
-                          ? item.music?.performer || item.music?.author
+                        item.type === 'TRACK'
+                          ? (item.music?.presentation_type
+                              ? PRESENTATION_LABELS[item.music.presentation_type]
+                              : '')
                           : item.moderation_text?.author
                       }
                       sx={{ flexGrow: 1, minWidth: 0 }}
@@ -758,8 +772,9 @@ export default function PlaylistsPage() {
               value={music.find((m) => m.uid === trackToAdd) ?? null}
               onChange={(_, val) => setTrackToAdd(val?.uid ?? '')}
               isOptionEqualToValue={(opt, val) => opt.uid === val.uid}
+              filterOptions={musicSearchFilter}
               getOptionLabel={(song) =>
-                `${song.title}${song.version ? ` (${song.version})` : ''} — ${song.performer || song.author}`
+                `${song.title}${song.version ? ` (${song.version})` : ''} — ${song.presentation_type ? PRESENTATION_LABELS[song.presentation_type] : ''}`
               }
               renderInput={(params) => <TextField {...params} label="Song hinzufügen" />}
             />
