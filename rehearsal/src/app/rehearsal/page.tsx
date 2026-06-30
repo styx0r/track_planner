@@ -328,6 +328,7 @@ export default function RehearsalPage() {
     status === PlaybackStatus.MODERATION;
 
   const isACapella = !isModeration && localMusic?.presentation_type === PresentationType.A_CAPELLA;
+  const isLivePiano = !isModeration && localMusic?.presentation_type === PresentationType.LIVE_PIANO;
 
   const effectiveBpm = bpm ?? localMusic?.bpm ?? 120;
   const effectiveDurationMs = durationMs ?? (localMusic?.duration ? localMusic.duration * 1000 : 0);
@@ -494,8 +495,8 @@ export default function RehearsalPage() {
         )}
       </main>
 
-      {/* ── Controls bar (hidden for A Capella) ── */}
-      {!isACapella && (
+      {/* ── Controls bar (hidden for A Capella & Live-Piano — no audio to play) ── */}
+      {!isACapella && !isLivePiano && (
         <div className={styles.controls}>
           <button
             className={`${styles.playPauseBtn} ${(isPlaying || isCountIn) ? styles.activePlay : ''}`}

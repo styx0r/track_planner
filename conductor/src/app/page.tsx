@@ -231,6 +231,9 @@ export default function ConductorPage() {
   const isACapella =
     !isModeration &&
     fallbackMusic?.presentation_type === PresentationType.A_CAPELLA;
+  const isLivePiano =
+    !isModeration &&
+    fallbackMusic?.presentation_type === PresentationType.LIVE_PIANO;
   const effectiveMetronomeStartTime =
     scheduledLocalStartTime !== null
       ? scheduledLocalStartTime + metronomeOffset
@@ -486,7 +489,7 @@ export default function ConductorPage() {
         )}
       </main>
 
-      {!isACapella && !isModeration && (
+      {!isACapella && !isLivePiano && !isModeration && (
         <div className={styles.controls}>
           <button
             className={styles.playBtn}
