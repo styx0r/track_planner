@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   Box,
@@ -29,6 +29,7 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   Collapse,
+  Autocomplete,
 } from '@mui/material';
 import {
   ArrowBack,
@@ -300,6 +301,11 @@ export default function PlaylistsPage() {
     ]);
     setTrackToAdd('');
   }, [trackToAdd, music]);
+
+  const sortedMusic = useMemo(
+    () => [...music].sort((a, b) => a.title.localeCompare(b.title, 'de')),
+    [music],
+  );
 
   const handleAddModerationText = useCallback(() => {
     if (!moderationToAdd) return;
@@ -745,20 +751,18 @@ export default function PlaylistsPage() {
 
           {/* Add track */}
           <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Song hinzufügen</InputLabel>
-              <Select
-                value={trackToAdd}
-                label="Song hinzufügen"
-                onChange={(e) => setTrackToAdd(e.target.value as string)}
-              >
-                {music.map((song) => (
-                  <MenuItem key={song.uid} value={song.uid}>
-                    {song.title}{song.version ? ` (${song.version})` : ''} — {song.performer || song.author}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Autocomplete
+              fullWidth
+              size="small"
+              options={sortedMusic}
+              value={music.find((m) => m.uid === trackToAdd) ?? null}
+              onChange={(_, val) => setTrackToAdd(val?.uid ?? '')}
+              isOptionEqualToValue={(opt, val) => opt.uid === val.uid}
+              getOptionLabel={(song) =>
+                `${song.title}${song.version ? ` (${song.version})` : ''} — ${song.performer || song.author}`
+              }
+              renderInput={(params) => <TextField {...params} label="Song hinzufügen" />}
+            />
             <Button
               variant="outlined"
               onClick={handleAddTrack}
