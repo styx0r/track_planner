@@ -250,6 +250,12 @@
   padding-left: 17px;
 }
 
+.rowCurrentLivePiano {
+  background: rgba(59,130,246,0.10) !important;
+  border-left: 3px solid #3b82f6;
+  padding-left: 17px;
+}
+
 .rowModerationCurrent {
   background: rgba(245,158,11,0.15) !important;
   border-left: 3px solid #f59e0b;
@@ -285,6 +291,10 @@
   color: #4ade80;
 }
 
+.rowTypeLivePiano .rowTitle {
+  color: #60a5fa;
+}
+
 .rowTypeModeration .rowTitle {
   color: #f59e0b;
 }
@@ -296,6 +306,11 @@
 
 .rowCurrentACapella .rowTitle {
   color: #86efac;
+  font-weight: 600;
+}
+
+.rowCurrentLivePiano .rowTitle {
+  color: #93c5fd;
   font-weight: 600;
 }
 
@@ -312,6 +327,10 @@
   color: #22c55e;
 }
 
+.iconLivePiano {
+  color: #3b82f6;
+}
+
 .iconModeration {
   color: #f59e0b;
 }
@@ -322,6 +341,10 @@
 
 .rowCurrentACapella .rowProgressFill {
   background: linear-gradient(90deg, #22c55e, #4ade80);
+}
+
+.rowCurrentLivePiano .rowProgressFill {
+  background: linear-gradient(90deg, #3b82f6, #60a5fa);
 }
 
 .rowDuration {

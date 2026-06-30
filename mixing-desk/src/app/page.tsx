@@ -254,14 +254,17 @@ export default function MixingDeskPage() {
           const isMod = item.type === PlaylistItemType.MODERATION_TEXT;
           const isCurrent = idx === currentItemIndex;
           const isACapella = isTrack && item.music?.presentation_type === PresentationType.A_CAPELLA;
+          const isLivePiano = isTrack && item.music?.presentation_type === PresentationType.LIVE_PIANO;
           const isPause = isMod && item.moderation_text?.text?.trim().toLowerCase() === 'pause';
 
           let rowClass = styles.row;
           if (isACapella) rowClass += ` ${styles.rowTypeACapella}`;
+          else if (isLivePiano) rowClass += ` ${styles.rowTypeLivePiano}`;
           else if (isTrack) rowClass += ` ${styles.rowTypePlayback}`;
           else if (isMod) rowClass += ` ${styles.rowTypeModeration}`;
 
-          if (isCurrent && isTrack && isACapella) rowClass += ` ${styles.rowCurrentACapella}`;
+          if (isCurrent && isACapella) rowClass += ` ${styles.rowCurrentACapella}`;
+          else if (isCurrent && isLivePiano) rowClass += ` ${styles.rowCurrentLivePiano}`;
           else if (isCurrent && isTrack) rowClass += ` ${styles.rowCurrentPlayback}`;
           else if (isCurrent && isMod) rowClass += ` ${styles.rowModerationCurrent}`;
 
@@ -282,7 +285,7 @@ export default function MixingDeskPage() {
               ref={isCurrent ? currentRowRef : null}
             >
               <span className={styles.rowNum}>{rowNumbers[idx] ?? ''}</span>
-              <span className={`${styles.rowIcon} ${isACapella ? styles.iconACapella : isMod ? styles.iconModeration : styles.iconPlayback}`}>{isPause ? '☕' : isMod ? '🎤' : isACapella ? '🎹' : '♪'}</span>
+              <span className={`${styles.rowIcon} ${isACapella ? styles.iconACapella : isLivePiano ? styles.iconLivePiano : isMod ? styles.iconModeration : styles.iconPlayback}`}>{isPause ? '☕' : isMod ? '🎤' : isACapella ? '🗣️' : isLivePiano ? '🎹' : '♪'}</span>
               <span className={styles.rowTitle}>{title}</span>
               <span className={styles.rowDuration}>{isTrack && item.music?.duration ? formatDuration(item.music.duration) : ''}</span>
               <span className={styles.rowMeta}>{meta}</span>
