@@ -244,6 +244,7 @@ export default function MixingDeskPage() {
           const isMod = item.type === PlaylistItemType.MODERATION_TEXT;
           const isCurrent = idx === currentItemIndex;
           const isACapella = isTrack && item.music?.presentation_type === PresentationType.A_CAPELLA;
+          const isPause = isMod && item.moderation_text?.text?.trim().toLowerCase() === 'pause';
 
           let rowClass = styles.row;
           if (isACapella) rowClass += ` ${styles.rowTypeACapella}`;
@@ -256,7 +257,9 @@ export default function MixingDeskPage() {
 
           const title = isTrack
             ? (item.music?.title ?? '?')
-            : item.performer ? `Moderation: ${item.performer}` : 'Moderation';
+            : isPause
+              ? 'Pause'
+              : item.performer ? `Moderation: ${item.performer}` : 'Moderation';
 
           const meta = isTrack
             ? formatPresentationType(item.music?.presentation_type)
@@ -269,7 +272,7 @@ export default function MixingDeskPage() {
               ref={isCurrent ? currentRowRef : null}
             >
               <span className={styles.rowNum}>{idx + 1}</span>
-              <span className={`${styles.rowIcon} ${isACapella ? styles.iconACapella : isMod ? styles.iconModeration : styles.iconPlayback}`}>{isMod ? '🎤' : isACapella ? '🎹' : '♪'}</span>
+              <span className={`${styles.rowIcon} ${isACapella ? styles.iconACapella : isMod ? styles.iconModeration : styles.iconPlayback}`}>{isPause ? '☕' : isMod ? '🎤' : isACapella ? '🎹' : '♪'}</span>
               <span className={styles.rowTitle}>{title}</span>
               <span className={styles.rowDuration}>{isTrack && item.music?.duration ? formatDuration(item.music.duration) : ''}</span>
               <span className={styles.rowMeta}>{meta}</span>
