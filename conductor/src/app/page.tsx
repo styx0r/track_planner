@@ -195,9 +195,22 @@ export default function ConductorPage() {
 
   const displayModerationText = currentModerationText ?? currentModerationFallback?.moderation_text?.text;
   const isPauseModeration = isModeration && displayModerationText?.trim().toLowerCase() === 'pause';
+
+  // Sequential item number with the Pause rule (numbering restarts after a pause; pause has no number).
+  let numberCounter = 0;
+  const itemNumbers = effectivePlaylistItems.map((it) => {
+    const pause = it?.type === PlaylistItemType.MODERATION_TEXT
+      && it.moderation_text?.text?.trim().toLowerCase() === 'pause';
+    if (pause) { numberCounter = 0; return null; }
+    numberCounter += 1;
+    return numberCounter;
+  });
+  const currentNumber = itemNumbers[currentItemIndex];
+  const numberPrefix = currentNumber != null ? `${currentNumber}. ` : '';
+
   const displayTitle = isModeration
-    ? (isPauseModeration ? '☕ Pause' : `Moderation: ${currentModerationAuthor ?? currentModerationFallback?.performer ?? ''}`)
-    : (currentTrackTitle ?? fallbackMusic?.title ?? '–');
+    ? (isPauseModeration ? '☕ Pause' : `${numberPrefix}Moderation: ${currentModerationAuthor ?? currentModerationFallback?.performer ?? ''}`)
+    : `${numberPrefix}${currentTrackTitle ?? fallbackMusic?.title ?? '–'}`;
   const effectiveSheets = sheets.length > 0 ? sheets : (fallbackMusic?.sheets ?? []);
 
   const prevItem = effectivePlaylistItems[currentItemIndex - 1];
