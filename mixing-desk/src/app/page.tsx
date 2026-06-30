@@ -158,6 +158,16 @@ export default function MixingDeskPage() {
     );
   }
 
+  // Row numbering: a "Pause" moderation acts as a section break — numbering restarts at 1 after it.
+  let runningNumber = 0;
+  const rowNumbers = effectivePlaylistItems.map((item) => {
+    const isPauseItem = item.type === PlaylistItemType.MODERATION_TEXT
+      && item.moderation_text?.text?.trim().toLowerCase() === 'pause';
+    if (isPauseItem) { runningNumber = 0; return null; }
+    runningNumber += 1;
+    return runningNumber;
+  });
+
   return (
     <div className={styles.layout}>
       {/* Top bar */}
@@ -271,7 +281,7 @@ export default function MixingDeskPage() {
               className={rowClass}
               ref={isCurrent ? currentRowRef : null}
             >
-              <span className={styles.rowNum}>{idx + 1}</span>
+              <span className={styles.rowNum}>{rowNumbers[idx] ?? ''}</span>
               <span className={`${styles.rowIcon} ${isACapella ? styles.iconACapella : isMod ? styles.iconModeration : styles.iconPlayback}`}>{isPause ? '☕' : isMod ? '🎤' : isACapella ? '🎹' : '♪'}</span>
               <span className={styles.rowTitle}>{title}</span>
               <span className={styles.rowDuration}>{isTrack && item.music?.duration ? formatDuration(item.music.duration) : ''}</span>

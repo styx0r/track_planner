@@ -34,14 +34,16 @@ function formatClock(ts: number) {
   });
 }
 
-function getItemLabel(item: { type: string; music?: { title?: string; version?: string }; performer?: string; moderation_text?: { author?: string } } | undefined): string {
+function getItemLabel(item: { type: string; music?: { title?: string; version?: string }; performer?: string; moderation_text?: { author?: string; text?: string } } | undefined): string {
   if (!item) return '';
   if (item.type === PlaylistItemType.TRACK) {
     const title = item.music?.title ?? '';
     return item.music?.version ? `${title} (${item.music.version})` : title;
   }
-  if (item.type === PlaylistItemType.MODERATION_TEXT)
+  if (item.type === PlaylistItemType.MODERATION_TEXT) {
+    if (item.moderation_text?.text?.trim().toLowerCase() === 'pause') return 'Pause';
     return `Mod: ${item.performer ?? ''}`;
+  }
   return '';
 }
 
@@ -345,10 +347,22 @@ export default function RehearsalPage() {
   const metronomeIsActive = isACapella ? aCapellaStartTime !== null : (isPlaying || isCountIn);
 
   // Track numbers (for sidebar display)
+  // trackNumbers: continuous, absolute track index (1-based) used for seeking — must NOT reset.
+  // displayNumbers: shown in the sidebar; counts all non-pause items and restarts after a pause.
   const trackNumbers = new Map<number, number>();
-  let n = 0;
+  const displayNumbers = new Map<number, number>();
+  let trackN = 0;
+  let displayN = 0;
   localItems.forEach((item, idx) => {
-    if (item.type === PlaylistItemType.TRACK) trackNumbers.set(idx, ++n);
+    const isPauseItem = item.type === PlaylistItemType.MODERATION_TEXT
+      && item.moderation_text?.text?.trim().toLowerCase() === 'pause';
+    if (isPauseItem) {
+      displayN = 0; // restart visible numbering after a pause (pause row itself gets no number)
+      return;
+    }
+    displayN += 1;
+    displayNumbers.set(idx, displayN);
+    if (item.type === PlaylistItemType.TRACK) trackNumbers.set(idx, ++trackN);
   });
 
   // For the play button: which track index should we (re)play?
@@ -450,7 +464,10 @@ export default function RehearsalPage() {
           {localItems.map((item, idx) => {
             const isActive = idx === activeItemIndex;
             const trackNum = trackNumbers.get(idx);
+            const displayNum = displayNumbers.get(idx);
             const isTrack = item.type === PlaylistItemType.TRACK;
+            const isPause = item.type === PlaylistItemType.MODERATION_TEXT
+              && item.moderation_text?.text?.trim().toLowerCase() === 'pause';
             return (
               <button
                 key={idx}
@@ -458,7 +475,7 @@ export default function RehearsalPage() {
                 onClick={() => isTrack ? handleSidebarClick(trackNum! - 1) : undefined}
                 disabled={!isTrack}
               >
-                <span className={styles.sidebarItemNum}>{isTrack ? trackNum : 'M'}</span>
+                <span className={styles.sidebarItemNum}>{isPause ? '☕' : displayNum}</span>
                 <span className={styles.sidebarItemLabel}>{getItemLabel(item)}</span>
               </button>
             );

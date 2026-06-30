@@ -46,6 +46,7 @@ import {
   Comment,
   MusicNote,
   PictureAsPdf,
+  LocalCafe,
 } from '@mui/icons-material';
 import { exportPlaylistPdf } from '../../lib/exportPlaylistPdf';
 
@@ -96,6 +97,17 @@ interface Playlist {
   name: string;
   description?: string;
   items: PlaylistItemData[];
+}
+
+function isPauseModeration(item: { type: string; moderation_text?: { text?: string } }): boolean {
+  return item.type === 'MODERATION_TEXT'
+    && item.moderation_text?.text?.trim().toLowerCase() === 'pause';
+}
+
+// Running row numbers; a "Pause" moderation resets the count (null = no number on the pause row).
+function computeRowNumbers(items: { type: string; moderation_text?: { text?: string } }[]): (number | null)[] {
+  let n = 0;
+  return items.map((item) => (isPauseModeration(item) ? ((n = 0), null) : ++n));
 }
 
 function formatTotalDuration(items: PlaylistItemData[]): string {
@@ -497,9 +509,10 @@ export default function PlaylistsPage() {
                   {playlist.items.length > 0 && (
                     <Box sx={{ pl: 2 }}>
                       <List dense>
-                        {[...playlist.items]
-                          .sort((a, b) => a.order - b.order)
-                          .map((item) => (
+                        {(() => {
+                          const sorted = [...playlist.items].sort((a, b) => a.order - b.order);
+                          const nums = computeRowNumbers(sorted);
+                          return sorted.map((item, i) => (
                             <ListItem
                               key={`${item.type}-${item.music_uid ?? item.moderation_text_uid}-${item.order}`}
                               disableGutters
@@ -509,7 +522,7 @@ export default function PlaylistsPage() {
                                   primary={
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                       <MusicNote sx={{ fontSize: 14, color: 'text.secondary' }} />
-                                      {`${item.order + 1}. ${item.music?.title ?? 'Unknown track'}${item.music?.version ? ` (${item.music.version})` : ''}`}
+                                      {`${nums[i]}. ${item.music?.title ?? 'Unknown track'}${item.music?.version ? ` (${item.music.version})` : ''}`}
                                     </Box>
                                   }
                                   secondary={[
@@ -519,12 +532,21 @@ export default function PlaylistsPage() {
                                       : null,
                                   ].filter(Boolean).join(' • ')}
                                 />
+                              ) : isPauseModeration(item) ? (
+                                <ListItemText
+                                  primary={
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                      <LocalCafe sx={{ fontSize: 14, color: 'text.secondary' }} />
+                                      Pause
+                                    </Box>
+                                  }
+                                />
                               ) : (
                                 <ListItemText
                                   primary={
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                       <Comment sx={{ fontSize: 14, color: 'text.secondary' }} />
-                                      {`${item.order + 1}. ${item.moderation_text?.text?.slice(0, 60) ?? 'Moderation text'}…`}
+                                      {`${nums[i]}. ${item.moderation_text?.text?.slice(0, 60) ?? 'Moderation text'}…`}
                                     </Box>
                                   }
                                   secondary={[
@@ -535,7 +557,8 @@ export default function PlaylistsPage() {
                                 />
                               )}
                             </ListItem>
-                          ))}
+                          ));
+                        })()}
                       </List>
                     </Box>
                   )}
@@ -584,12 +607,16 @@ export default function PlaylistsPage() {
                 />
               </ListItem>
             ) : (
-              playlistItems.map((item, index) => (
+              (() => {
+                const nums = computeRowNumbers(playlistItems);
+                return playlistItems.map((item, index) => (
                 <React.Fragment key={item.localId}>
                   <ListItem divider sx={{ pr: 1, flexWrap: 'wrap', alignItems: 'flex-start' }}>
                     <Box sx={{ mr: 1, mt: 0.5, color: 'text.secondary' }}>
                       {item.type === 'TRACK' ? (
                         <MusicNote fontSize="small" />
+                      ) : isPauseModeration(item) ? (
+                        <LocalCafe fontSize="small" />
                       ) : (
                         <Comment fontSize="small" />
                       )}
@@ -597,8 +624,10 @@ export default function PlaylistsPage() {
                     <ListItemText
                       primary={
                         item.type === 'TRACK'
-                          ? `${index + 1}. ${item.music?.title ?? 'Unknown'}${item.music?.version ? ` (${item.music.version})` : ''}`
-                          : `${index + 1}. ${item.moderation_text?.text?.slice(0, 60) ?? 'Moderation text'}…`
+                          ? `${nums[index]}. ${item.music?.title ?? 'Unknown'}${item.music?.version ? ` (${item.music.version})` : ''}`
+                          : isPauseModeration(item)
+                          ? 'Pause'
+                          : `${nums[index]}. ${item.moderation_text?.text?.slice(0, 60) ?? 'Moderation text'}…`
                       }
                       secondary={
                         item.performer
@@ -702,7 +731,8 @@ export default function PlaylistsPage() {
                     </Box>
                   </Collapse>
                 </React.Fragment>
-              ))
+                ));
+              })()
             )}
           </List>
 

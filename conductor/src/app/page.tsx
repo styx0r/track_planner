@@ -63,10 +63,13 @@ function BeatDots({ bpm, enabled, timeSignature, startTime }: {
   );
 }
 
-function getItemLabel(item: { type: string; music?: { title?: string }; performer?: string; moderation_text?: { author?: string } } | undefined): string {
+function getItemLabel(item: { type: string; music?: { title?: string }; performer?: string; moderation_text?: { author?: string; text?: string } } | undefined): string {
   if (!item) return '';
   if (item.type === PlaylistItemType.TRACK) return item.music?.title ?? '';
-  if (item.type === PlaylistItemType.MODERATION_TEXT) return `Moderation: ${item.performer ?? ''}`;
+  if (item.type === PlaylistItemType.MODERATION_TEXT) {
+    if (item.moderation_text?.text?.trim().toLowerCase() === 'pause') return '☕ Pause';
+    return `Moderation: ${item.performer ?? ''}`;
+  }
   return '';
 }
 
@@ -190,10 +193,11 @@ export default function ConductorPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activePlaylistUid, currentItemIndex, effectivePlaylistItems.length, goNext, goPrevious]);
 
-  const displayTitle = isModeration
-    ? `Moderation: ${currentModerationAuthor ?? currentModerationFallback?.performer ?? ''}`
-    : (currentTrackTitle ?? fallbackMusic?.title ?? '–');
   const displayModerationText = currentModerationText ?? currentModerationFallback?.moderation_text?.text;
+  const isPauseModeration = isModeration && displayModerationText?.trim().toLowerCase() === 'pause';
+  const displayTitle = isModeration
+    ? (isPauseModeration ? '☕ Pause' : `Moderation: ${currentModerationAuthor ?? currentModerationFallback?.performer ?? ''}`)
+    : (currentTrackTitle ?? fallbackMusic?.title ?? '–');
   const effectiveSheets = sheets.length > 0 ? sheets : (fallbackMusic?.sheets ?? []);
 
   const prevItem = effectivePlaylistItems[currentItemIndex - 1];

@@ -112,6 +112,12 @@ export async function exportPlaylistPdf(playlist: PlaylistLike): Promise<void> {
   // ── Table ──
   let runningNr = 0;
   const body = playlist.items.map((item) => {
+    const isPause = item.type === 'MODERATION_TEXT'
+      && item.moderation_text?.text?.trim().toLowerCase() === 'pause';
+    if (isPause) {
+      runningNr = 0; // section break — numbering restarts after a pause
+      return ['', 'Pause', '', '', '', '', '', ''];
+    }
     runningNr += 1;
     if (item.type === 'TRACK') {
       const m = item.music;
