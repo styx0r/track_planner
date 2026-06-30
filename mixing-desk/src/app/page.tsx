@@ -173,7 +173,7 @@ export default function MixingDeskPage() {
               }`}
               title={`Server-CPU${cpuTemp.label ? ` (${cpuTemp.label})` : ''}`}
             >
-              🌡 {cpuTemp.celsius}°C
+              <span className={styles.cpuTempLabel}>Backend CPU Temperatur:</span> {cpuTemp.celsius}°C
             </div>
           )}
         </div>
