@@ -179,6 +179,7 @@ type PlaylistTrackSummary {
   duration: Int
   file_name: String
   file_url: String
+  key: String
   metronome_default_enabled: Boolean
   performer: String
   presentation_type: PresentationType

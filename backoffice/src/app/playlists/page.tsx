@@ -45,7 +45,9 @@ import {
   MicNone,
   Comment,
   MusicNote,
+  PictureAsPdf,
 } from '@mui/icons-material';
+import { exportPlaylistPdf } from '../../lib/exportPlaylistPdf';
 
 type PlaylistItemType = 'TRACK' | 'MODERATION_TEXT';
 
@@ -58,6 +60,8 @@ interface MusicSummary {
   bpm?: number;
   duration?: number;
   time_signature?: string;
+  key?: string;
+  presentation_type?: 'A_CAPELLA' | 'LIVE_PIANO' | 'PLAYBACK';
   metronome_default_enabled?: boolean;
 }
 
@@ -122,6 +126,18 @@ export default function PlaylistsPage() {
   const [trackToAdd, setTrackToAdd] = useState('');
   const [moderationToAdd, setModerationToAdd] = useState('');
 
+  const handleExportPdf = useCallback(async (pl: { name: string; items: PlaylistItemData[] }) => {
+    if (pl.items.length === 0) {
+      setSnackbar({ open: true, message: 'Playlist ist leer – nichts zu exportieren.', severity: 'error' });
+      return;
+    }
+    try {
+      await exportPlaylistPdf(pl);
+    } catch (error) {
+      setSnackbar({ open: true, message: `PDF-Export fehlgeschlagen: ${error}`, severity: 'error' });
+    }
+  }, []);
+
   const togglePlaylistExpanded = useCallback((uid: string) => {
     setExpandedPlaylists((prev) => {
       const next = new Set(prev);
@@ -158,7 +174,7 @@ export default function PlaylistsPage() {
                   performer
                   music_uid
                   metronome_enabled_override
-                  music { uid title author version performer bpm duration time_signature metronome_default_enabled }
+                  music { uid title author version performer bpm duration time_signature key presentation_type metronome_default_enabled }
                   moderation_text_uid
                   moderation_text { uid text author category }
                 }
@@ -186,7 +202,7 @@ export default function PlaylistsPage() {
           query: `
             query GetMusic {
               searchMusic(searchInput: null) {
-                uid title author version performer bpm duration time_signature metronome_default_enabled
+                uid title author version performer bpm duration time_signature key presentation_type metronome_default_enabled
               }
             }
           `,
@@ -464,6 +480,11 @@ export default function PlaylistsPage() {
                       ].filter(Boolean).join(' • ')}
                     />
                     <Box sx={{ display: 'flex', gap: 0.5 }}>
+                      <Tooltip title="Als PDF exportieren">
+                        <IconButton size="small" onClick={() => handleExportPdf(playlist)}>
+                          <PictureAsPdf fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
                       <IconButton size="small" onClick={() => handleEditPlaylist(playlist)}>
                         <Edit fontSize="small" />
                       </IconButton>
@@ -745,6 +766,14 @@ export default function PlaylistsPage() {
           </Box>
         </DialogContent>
         <DialogActions>
+          <Button
+            startIcon={<PictureAsPdf />}
+            onClick={() => handleExportPdf({ name: playlistForm.name, items: playlistItems })}
+            disabled={playlistItems.length === 0}
+          >
+            PDF Export
+          </Button>
+          <Box sx={{ flex: 1 }} />
           <Button onClick={closePlaylistDialog}>Cancel</Button>
           <Button variant="contained" onClick={handleSavePlaylist}>
             {editingPlaylist ? 'Save Changes' : 'Create Playlist'}

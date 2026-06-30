@@ -60,6 +60,9 @@ export class PlaylistTrackSummary {
   time_signature?: string;
 
   @Field({ nullable: true })
+  key?: string;
+
+  @Field({ nullable: true })
   file_url?: string;
 
   @Field({ nullable: true })
