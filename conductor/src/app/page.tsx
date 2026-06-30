@@ -3,7 +3,12 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { usePlayback } from '../lib/usePlayback';
 import { fetchMusicApi } from '../lib/useApi';
-import { PlaybackStatus, PlaylistItemType, PlaylistTrackSummary, PresentationType } from '../lib/types';
+import {
+  PlaybackStatus,
+  PlaylistItemType,
+  PlaylistTrackSummary,
+  PresentationType,
+} from '../lib/types';
 import { ConductorSheetViewer } from '../components/ConductorSheetViewer';
 import { WaveformProgressBar } from '../components/WaveformProgressBar';
 import styles from './page.module.css';
@@ -18,7 +23,11 @@ function useClock() {
 }
 
 function formatClock(ts: number) {
-  return new Date(ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  return new Date(ts).toLocaleTimeString('de-DE', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
 }
 
 function formatElapsed(startTs: number, now: number) {
@@ -31,8 +40,16 @@ function formatElapsed(startTs: number, now: number) {
     : `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
 }
 
-function BeatDots({ bpm, enabled, timeSignature, startTime }: {
-  bpm: number; enabled: boolean; timeSignature: string; startTime: number | null;
+function BeatDots({
+  bpm,
+  enabled,
+  timeSignature,
+  startTime,
+}: {
+  bpm: number;
+  enabled: boolean;
+  timeSignature: string;
+  startTime: number | null;
 }) {
   const beats = parseInt(timeSignature.split('/')[0], 10) || 4;
   const [activeBeat, setActiveBeat] = useState(-1);
@@ -40,7 +57,10 @@ function BeatDots({ bpm, enabled, timeSignature, startTime }: {
 
   useEffect(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    if (!enabled || startTime === null) { setActiveBeat(-1); return; }
+    if (!enabled || startTime === null) {
+      setActiveBeat(-1);
+      return;
+    }
     const interval = 60000 / bpm;
     const tick = () => {
       const elapsed = Date.now() - startTime;
@@ -48,7 +68,9 @@ function BeatDots({ bpm, enabled, timeSignature, startTime }: {
       rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
-    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
   }, [enabled, startTime, bpm, beats]);
 
   return (
@@ -56,18 +78,30 @@ function BeatDots({ bpm, enabled, timeSignature, startTime }: {
       {Array.from({ length: beats }, (_, i) => (
         <div
           key={i}
-          className={`${styles.beatDot} ${i === 0 ? styles.beatAccent : ''} ${i === activeBeat ? styles.beatActive : ''}`}
+          className={`${styles.beatDot} ${i === 0 ? styles.beatAccent : ''} ${
+            i === activeBeat ? styles.beatActive : ''
+          }`}
         />
       ))}
     </div>
   );
 }
 
-function getItemLabel(item: { type: string; music?: { title?: string }; performer?: string; moderation_text?: { author?: string; text?: string } } | undefined): string {
+function getItemLabel(
+  item:
+    | {
+        type: string;
+        music?: { title?: string };
+        performer?: string;
+        moderation_text?: { author?: string; text?: string };
+      }
+    | undefined
+): string {
   if (!item) return '';
   if (item.type === PlaylistItemType.TRACK) return item.music?.title ?? '';
   if (item.type === PlaylistItemType.MODERATION_TEXT) {
-    if (item.moderation_text?.text?.trim().toLowerCase() === 'pause') return '☕ Pause';
+    if (item.moderation_text?.text?.trim().toLowerCase() === 'pause')
+      return '☕ Pause';
     return `Moderation: ${item.performer ?? ''}`;
   }
   return '';
@@ -75,16 +109,28 @@ function getItemLabel(item: { type: string; music?: { title?: string }; performe
 
 export default function ConductorPage() {
   const {
-    isConnected, isLoading, playbackState, metronomeState,
+    isConnected,
+    isLoading,
+    playbackState,
+    metronomeState,
     scheduledLocalStartTime,
-    connect, play, stop, next, previous, setDisplayLock,
+    connect,
+    play,
+    stop,
+    next,
+    previous,
+    setDisplayLock,
   } = usePlayback();
 
   const now = useClock();
-  const [localTrackDetails, setLocalTrackDetails] = useState<PlaylistTrackSummary | null>(null);
-  const [aCapellaMetronomeStartTime, setACapellaMetronomeStartTime] = useState<number | null>(null);
+  const [localTrackDetails, setLocalTrackDetails] =
+    useState<PlaylistTrackSummary | null>(null);
+  const [aCapellaMetronomeStartTime, setACapellaMetronomeStartTime] = useState<
+    number | null
+  >(null);
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
+  const [showPinPad, setShowPinPad] = useState(false);
 
   const CORRECT_PIN = process.env.NEXT_PUBLIC_CONDUCTOR_PIN ?? '1234';
 
@@ -97,30 +143,66 @@ export default function ConductorPage() {
       if (next === CORRECT_PIN) {
         setDisplayLock(false);
         setPinInput('');
+        setShowPinPad(false);
       } else {
         setPinError(true);
-        setTimeout(() => { setPinInput(''); setPinError(false); }, 700);
+        setTimeout(() => {
+          setPinInput('');
+          setPinError(false);
+        }, 700);
       }
     }
   }
 
   function handleNumpadDelete() {
-    setPinInput(prev => prev.slice(0, -1));
+    setPinInput((prev) => prev.slice(0, -1));
     setPinError(false);
   }
 
-  useEffect(() => { connect(); }, [connect]);
+  useEffect(() => {
+    connect();
+  }, [connect]);
 
   const activePlaylistUid = playbackState.playlistUid;
   const displayLocked = playbackState.displayLocked ?? false;
 
-  const { status, playlistItems = [], currentItemIndex: playbackItemIndex = 0,
-    currentTrackTitle, currentModerationText, currentModerationAuthor,
-    sheets = [], bpm, durationMs, metronomeOffset = 0,
-    timeSignature } = playbackState;
+  // When unlocked, reset the lock screen back to the logo (so re-locking shows the logo first).
+  useEffect(() => {
+    if (!displayLocked) {
+      setShowPinPad(false);
+      setPinInput('');
+      setPinError(false);
+    }
+  }, [displayLocked]);
+
+  // Auto-return to the logo after 6s of inactivity on the PIN pad (timer resets on each keypress).
+  useEffect(() => {
+    if (!displayLocked || !showPinPad) return;
+    const id = setTimeout(() => {
+      setShowPinPad(false);
+      setPinInput('');
+      setPinError(false);
+    }, 10000);
+    return () => clearTimeout(id);
+  }, [displayLocked, showPinPad, pinInput]);
+
+  const {
+    status,
+    playlistItems = [],
+    currentItemIndex: playbackItemIndex = 0,
+    currentTrackTitle,
+    currentModerationText,
+    currentModerationAuthor,
+    sheets = [],
+    bpm,
+    durationMs,
+    metronomeOffset = 0,
+    timeSignature,
+  } = playbackState;
 
   const isPlaying = status === PlaybackStatus.PLAYING;
-  const isPlaybackActive = status === PlaybackStatus.PLAYING ||
+  const isPlaybackActive =
+    status === PlaybackStatus.PLAYING ||
     status === PlaybackStatus.COUNT_IN ||
     status === PlaybackStatus.LOADING ||
     status === PlaybackStatus.PAUSED;
@@ -128,24 +210,43 @@ export default function ConductorPage() {
   const effectivePlaylistItems: typeof playlistItems = playlistItems;
   const currentItemIndex = playbackItemIndex;
   const currentItem = effectivePlaylistItems[currentItemIndex];
-  const currentTrackFallback = currentItem?.type === PlaylistItemType.TRACK ? currentItem : undefined;
-  const currentModerationFallback = currentItem?.type === PlaylistItemType.MODERATION_TEXT ? currentItem : undefined;
+  const currentTrackFallback =
+    currentItem?.type === PlaylistItemType.TRACK ? currentItem : undefined;
+  const currentModerationFallback =
+    currentItem?.type === PlaylistItemType.MODERATION_TEXT
+      ? currentItem
+      : undefined;
   const fallbackMusic = localTrackDetails ?? currentTrackFallback?.music;
-  const isModeration = status === PlaybackStatus.MODERATION || currentItem?.type === PlaylistItemType.MODERATION_TEXT;
+  const isModeration =
+    status === PlaybackStatus.MODERATION ||
+    currentItem?.type === PlaylistItemType.MODERATION_TEXT;
   const effectiveBpm = bpm ?? fallbackMusic?.bpm ?? 120;
-  const effectiveDurationMs = durationMs ?? (fallbackMusic?.duration ? fallbackMusic.duration * 1000 : 0);
-  const effectiveTimeSignature = timeSignature ?? fallbackMusic?.time_signature ?? '4/4';
-  const effectiveWaveform = isModeration ? null : (playbackState.waveform ?? fallbackMusic?.waveform ?? null);
-  const isACapella = !isModeration && fallbackMusic?.presentation_type === PresentationType.A_CAPELLA;
-  const effectiveMetronomeStartTime = scheduledLocalStartTime !== null
-    ? scheduledLocalStartTime + metronomeOffset
-    : null;
-  const effectiveTrackIndex = currentItem?.type === PlaylistItemType.TRACK
-    ? effectivePlaylistItems.slice(0, currentItemIndex + 1).filter((item) => item.type === PlaylistItemType.TRACK).length - 1
-    : playbackState.currentTrackIndex ?? 0;
+  const effectiveDurationMs =
+    durationMs ?? (fallbackMusic?.duration ? fallbackMusic.duration * 1000 : 0);
+  const effectiveTimeSignature =
+    timeSignature ?? fallbackMusic?.time_signature ?? '4/4';
+  const effectiveWaveform = isModeration
+    ? null
+    : playbackState.waveform ?? fallbackMusic?.waveform ?? null;
+  const isACapella =
+    !isModeration &&
+    fallbackMusic?.presentation_type === PresentationType.A_CAPELLA;
+  const effectiveMetronomeStartTime =
+    scheduledLocalStartTime !== null
+      ? scheduledLocalStartTime + metronomeOffset
+      : null;
+  const effectiveTrackIndex =
+    currentItem?.type === PlaylistItemType.TRACK
+      ? effectivePlaylistItems
+          .slice(0, currentItemIndex + 1)
+          .filter((item) => item.type === PlaylistItemType.TRACK).length - 1
+      : playbackState.currentTrackIndex ?? 0;
 
   useEffect(() => {
-    const musicUid = currentItem?.type === PlaylistItemType.TRACK ? currentItem.music_uid : null;
+    const musicUid =
+      currentItem?.type === PlaylistItemType.TRACK
+        ? currentItem.music_uid
+        : null;
     if (!musicUid) {
       setLocalTrackDetails(null);
       return;
@@ -159,7 +260,9 @@ export default function ConductorPage() {
       })
       .catch(console.error);
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [currentItem]);
 
   useEffect(() => {
@@ -171,19 +274,33 @@ export default function ConductorPage() {
     setACapellaMetronomeStartTime(Date.now());
   }, [currentItemIndex, isACapella]);
 
-  const goPrevious = useCallback(() => { previous(); }, [previous]);
+  const goPrevious = useCallback(() => {
+    previous();
+  }, [previous]);
 
-  const goNext = useCallback(() => { next(); }, [next]);
+  const goNext = useCallback(() => {
+    next();
+  }, [next]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || !activePlaylistUid) return;
+      if (
+        e.altKey ||
+        e.ctrlKey ||
+        e.metaKey ||
+        e.shiftKey ||
+        !activePlaylistUid
+      )
+        return;
 
       const key = e.key.toLowerCase();
       if (key === 'a' && currentItemIndex > 0) {
         e.preventDefault();
         goPrevious();
-      } else if (key === 'l' && currentItemIndex < effectivePlaylistItems.length - 1) {
+      } else if (
+        key === 'l' &&
+        currentItemIndex < effectivePlaylistItems.length - 1
+      ) {
         e.preventDefault();
         goNext();
       }
@@ -191,17 +308,29 @@ export default function ConductorPage() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activePlaylistUid, currentItemIndex, effectivePlaylistItems.length, goNext, goPrevious]);
+  }, [
+    activePlaylistUid,
+    currentItemIndex,
+    effectivePlaylistItems.length,
+    goNext,
+    goPrevious,
+  ]);
 
-  const displayModerationText = currentModerationText ?? currentModerationFallback?.moderation_text?.text;
-  const isPauseModeration = isModeration && displayModerationText?.trim().toLowerCase() === 'pause';
+  const displayModerationText =
+    currentModerationText ?? currentModerationFallback?.moderation_text?.text;
+  const isPauseModeration =
+    isModeration && displayModerationText?.trim().toLowerCase() === 'pause';
 
   // Sequential item number with the Pause rule (numbering restarts after a pause; pause has no number).
   let numberCounter = 0;
   const itemNumbers = effectivePlaylistItems.map((it) => {
-    const pause = it?.type === PlaylistItemType.MODERATION_TEXT
-      && it.moderation_text?.text?.trim().toLowerCase() === 'pause';
-    if (pause) { numberCounter = 0; return null; }
+    const pause =
+      it?.type === PlaylistItemType.MODERATION_TEXT &&
+      it.moderation_text?.text?.trim().toLowerCase() === 'pause';
+    if (pause) {
+      numberCounter = 0;
+      return null;
+    }
     numberCounter += 1;
     return numberCounter;
   });
@@ -209,13 +338,17 @@ export default function ConductorPage() {
   const numberPrefix = currentNumber != null ? `${currentNumber}. ` : '';
 
   const displayTitle = isModeration
-    ? (isPauseModeration ? '☕ Pause' : `${numberPrefix}Moderation: ${currentModerationAuthor ?? currentModerationFallback?.performer ?? ''}`)
+    ? isPauseModeration
+      ? '☕ Pause'
+      : `${numberPrefix}Moderation: ${
+          currentModerationAuthor ?? currentModerationFallback?.performer ?? ''
+        }`
     : `${numberPrefix}${currentTrackTitle ?? fallbackMusic?.title ?? '–'}`;
-  const effectiveSheets = sheets.length > 0 ? sheets : (fallbackMusic?.sheets ?? []);
+  const effectiveSheets =
+    sheets.length > 0 ? sheets : fallbackMusic?.sheets ?? [];
 
   const prevItem = effectivePlaylistItems[currentItemIndex - 1];
   const nextItem = effectivePlaylistItems[currentItemIndex + 1];
-
 
   if (!isConnected && isLoading) {
     return (
@@ -238,23 +371,75 @@ export default function ConductorPage() {
     <div className={styles.layout}>
       {displayLocked && (
         <div className={styles.lockOverlay}>
-          <div className={styles.pinCard}>
-            <div className={styles.pinTitle}>🔒 Gesperrt</div>
-            <div className={`${styles.pinDots} ${pinError ? styles.pinDotsError : ''}`}>
-              {Array.from({ length: CORRECT_PIN.length }, (_, i) => (
-                <span key={i} className={`${styles.pinDot} ${i < pinInput.length ? styles.pinDotFilled : ''}`} />
-              ))}
+          {!showPinPad ? (
+            <button
+              className={styles.lockLogoScreen}
+              onClick={() => setShowPinPad(true)}
+              title="Zum Entsperren tippen"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/logo-gospelfriends.png"
+                alt="Gospel-friends"
+                className={styles.lockLogo}
+              />
+              <div className={styles.lockHint}>🔒 Zum Entsperren tippen</div>
+            </button>
+          ) : (
+            <div className={styles.pinCard}>
+              <button
+                className={styles.pinClose}
+                onClick={() => {
+                  setShowPinPad(false);
+                  setPinInput('');
+                  setPinError(false);
+                }}
+                title="Zurück zum Logo"
+              >
+                ✕
+              </button>
+              <div className={styles.pinTitle}>🔒 Gesperrt</div>
+              <div
+                className={`${styles.pinDots} ${
+                  pinError ? styles.pinDotsError : ''
+                }`}
+              >
+                {Array.from({ length: CORRECT_PIN.length }, (_, i) => (
+                  <span
+                    key={i}
+                    className={`${styles.pinDot} ${
+                      i < pinInput.length ? styles.pinDotFilled : ''
+                    }`}
+                  />
+                ))}
+              </div>
+              {pinError && <div className={styles.pinError}>Falscher PIN</div>}
+              <div className={styles.numpad}>
+                {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((d) => (
+                  <button
+                    key={d}
+                    className={styles.numpadBtn}
+                    onClick={() => handleNumpadDigit(d)}
+                  >
+                    {d}
+                  </button>
+                ))}
+                <button
+                  className={`${styles.numpadBtn} ${styles.numpadBtnDelete}`}
+                  onClick={handleNumpadDelete}
+                >
+                  ⌫
+                </button>
+                <button
+                  className={styles.numpadBtn}
+                  onClick={() => handleNumpadDigit('0')}
+                >
+                  0
+                </button>
+                <div />
+              </div>
             </div>
-            {pinError && <div className={styles.pinError}>Falscher PIN</div>}
-            <div className={styles.numpad}>
-              {['1','2','3','4','5','6','7','8','9'].map(d => (
-                <button key={d} className={styles.numpadBtn} onClick={() => handleNumpadDigit(d)}>{d}</button>
-              ))}
-              <button className={`${styles.numpadBtn} ${styles.numpadBtnDelete}`} onClick={handleNumpadDelete}>⌫</button>
-              <button className={styles.numpadBtn} onClick={() => handleNumpadDigit('0')}>0</button>
-              <div />
-            </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -269,14 +454,21 @@ export default function ConductorPage() {
           ← <span className={styles.navLabel}>{getItemLabel(prevItem)}</span>
         </button>
 
-        <div className={`${styles.currentTitle} ${isModeration ? styles.moderationBadge : ''}`}>
+        <div
+          className={`${styles.currentTitle} ${
+            isModeration ? styles.moderationBadge : ''
+          }`}
+        >
           {displayTitle}
         </div>
 
         <button
           className={`${styles.navBtn} ${styles.navBtnRight}`}
           onClick={goNext}
-          disabled={!activePlaylistUid || currentItemIndex >= effectivePlaylistItems.length - 1}
+          disabled={
+            !activePlaylistUid ||
+            currentItemIndex >= effectivePlaylistItems.length - 1
+          }
           title="Nächstes"
         >
           <span className={styles.navLabel}>{getItemLabel(nextItem)}</span> →
@@ -298,7 +490,11 @@ export default function ConductorPage() {
         <div className={styles.controls}>
           <button
             className={styles.playBtn}
-            onClick={() => activePlaylistUid && !isModeration && play(activePlaylistUid, effectiveTrackIndex, 0)}
+            onClick={() =>
+              activePlaylistUid &&
+              !isModeration &&
+              play(activePlaylistUid, effectiveTrackIndex, 0)
+            }
             disabled={isPlaybackActive || isModeration || !activePlaylistUid}
             title="Play"
           >
@@ -328,7 +524,11 @@ export default function ConductorPage() {
       {/* Footer: BPM, beat indicator, clock */}
       <footer className={styles.footer}>
         <div className={styles.footerLeft}>
-          <button className={styles.lockBtn} onClick={() => setDisplayLock(true)} title="Ansicht sperren">
+          <button
+            className={styles.lockBtn}
+            onClick={() => setDisplayLock(true)}
+            title="Ansicht sperren"
+          >
             🔒
           </button>
           {!isModeration && (
@@ -345,7 +545,13 @@ export default function ConductorPage() {
               bpm={effectiveBpm}
               enabled={isACapella || (metronomeState.enabled && isPlaying)}
               timeSignature={effectiveTimeSignature}
-              startTime={isACapella ? aCapellaMetronomeStartTime : (isPlaying ? effectiveMetronomeStartTime : null)}
+              startTime={
+                isACapella
+                  ? aCapellaMetronomeStartTime
+                  : isPlaying
+                  ? effectiveMetronomeStartTime
+                  : null
+              }
             />
           </div>
         )}
@@ -356,7 +562,9 @@ export default function ConductorPage() {
               Laufzeit: {formatElapsed(playbackState.performanceStartTime, now)}
             </span>
           )}
-          <span className={styles.clockTime} suppressHydrationWarning>{formatClock(now)}</span>
+          <span className={styles.clockTime} suppressHydrationWarning>
+            {formatClock(now)}
+          </span>
         </div>
       </footer>
     </div>
