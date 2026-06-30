@@ -15,6 +15,7 @@ import { PlaybackModule } from './playback/playback.module';
 import { ModerationModule } from './moderation/moderation.module';
 import { SnapshotModule } from './snapshot/snapshot.module';
 import { GenreModule } from './genre/genre.module';
+import { SystemModule } from './system/system.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { GenreModule } from './genre/genre.module';
     ModerationModule,
     SnapshotModule,
     GenreModule,
+    SystemModule,
   ],
   providers: [AppResolver, DatabaseService, LightResolver, LightService],
 })

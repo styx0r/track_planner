@@ -106,6 +106,18 @@ export async function fetchPlaylistApi(uid: string): Promise<Playlist> {
   return data.playlist;
 }
 
+export interface CpuTemperature {
+  celsius: number | null;
+  label: string | null;
+  available: boolean;
+}
+
+export async function fetchCpuTemperatureApi(): Promise<CpuTemperature> {
+  const response = await fetch(`${BACKEND_URL}/api/system/temperature`);
+  if (!response.ok) throw new Error(`Temperature request failed: ${response.status}`);
+  return response.json();
+}
+
 // Hook for loading state (use sparingly to avoid re-render loops)
 export function useApiState() {
   const [isLoading, setIsLoading] = useState(false);

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePlayback } from '../lib/usePlayback';
-import { fetchPlaylistsApi } from '../lib/useApi';
+import { fetchPlaylistsApi, fetchCpuTemperatureApi, CpuTemperature } from '../lib/useApi';
 import { getLocalStartTime } from '../lib/timeSync';
 import { Playlist, PlaylistItemType, PlaybackStatus, PresentationType } from '../lib/types';
 import styles from './page.module.css';
@@ -18,6 +18,22 @@ function useClock() {
 
 function formatClock(ts: number) {
   return new Date(ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+function useCpuTemperature(pollMs = 5000): CpuTemperature {
+  const [temp, setTemp] = useState<CpuTemperature>({ celsius: null, label: null, available: false });
+  useEffect(() => {
+    let cancelled = false;
+    const tick = () => {
+      fetchCpuTemperatureApi()
+        .then((t) => { if (!cancelled) setTemp(t); })
+        .catch(() => { if (!cancelled) setTemp({ celsius: null, label: null, available: false }); });
+    };
+    tick();
+    const id = setInterval(tick, pollMs);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [pollMs]);
+  return temp;
 }
 
 function formatElapsed(startTs: number, now: number) {
@@ -53,6 +69,7 @@ export default function MixingDeskPage() {
   } = usePlayback();
 
   const now = useClock();
+  const cpuTemp = useCpuTemperature();
   const currentRowRef = useRef<HTMLDivElement>(null);
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [showPlaylistResetDialog, setShowPlaylistResetDialog] = useState(false);
@@ -145,7 +162,21 @@ export default function MixingDeskPage() {
     <div className={styles.layout}>
       {/* Top bar */}
       <div className={styles.topBar}>
-        <div className={styles.clock}>{formatClock(now)}</div>
+        <div className={styles.topLeft}>
+          <div className={styles.clock}>{formatClock(now)}</div>
+          {cpuTemp.available && cpuTemp.celsius !== null && (
+            <div
+              className={`${styles.cpuTemp} ${
+                cpuTemp.celsius >= 85 ? styles.cpuTempHot
+                  : cpuTemp.celsius >= 70 ? styles.cpuTempWarm
+                  : styles.cpuTempOk
+              }`}
+              title={`Server-CPU${cpuTemp.label ? ` (${cpuTemp.label})` : ''}`}
+            >
+              🌡 {cpuTemp.celsius}°C
+            </div>
+          )}
+        </div>
 
         <div className={styles.startArea}>
           <button

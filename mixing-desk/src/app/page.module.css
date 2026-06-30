@@ -16,10 +16,35 @@
   gap: 12px;
 }
 
+.topLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .clock {
   font-size: 18px;
   font-weight: 700;
   color: #94a3b8;
+}
+
+.cpuTemp {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cpuTempOk {
+  color: #4ade80;
+}
+
+.cpuTempWarm {
+  color: #fbbf24;
+}
+
+.cpuTempHot {
+  color: #f87171;
 }
 
 .startArea {
