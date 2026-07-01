@@ -1,7 +1,7 @@
 # Same as the previous start-all.ps1: LAN IP + full production builds per app (start:all).
-$env:BACKEND_URL = "http://192.168.96.170:3333"
-$env:NEXT_PUBLIC_BACKEND_URL = "http://192.168.96.170:3333"
-$env:MINIO_ENDPOINT = "192.168.96.170"
+$env:BACKEND_URL = "http://10.99.70.100:3333"
+$env:NEXT_PUBLIC_BACKEND_URL = "http://10.99.70.100:3333"
+$env:MINIO_ENDPOINT = "http://10.99.70.100"
 $env:MINIO_PORT = "9000"
 $env:MINIO_USE_SSL = "false"
 $env:MINIO_REGION = "eu-central-1"
