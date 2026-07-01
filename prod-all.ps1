@@ -3,7 +3,7 @@
 # These are backend RUNTIME variables (MinIO etc.); the frontend URL is already baked in at build time.
 $env:BACKEND_URL = "http://10.99.70.100:3333"
 $env:NEXT_PUBLIC_BACKEND_URL = "http://10.99.70.100:3333"
-$env:MINIO_ENDPOINT = "http://10.99.70.100"
+$env:MINIO_ENDPOINT = "10.99.70.100"
 $env:MINIO_PORT = "9000"
 $env:MINIO_USE_SSL = "false"
 $env:MINIO_REGION = "eu-central-1"
