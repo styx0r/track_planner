@@ -18,6 +18,9 @@ set -euo pipefail
 export BACKEND_URL="http://localhost:3333"
 export NEXT_PUBLIC_BACKEND_URL="http://localhost:3333"
 
+# Conductor unlock PIN (baked into the conductor build)
+export NEXT_PUBLIC_CONDUCTOR_PIN="1234"
+
 # ArangoDB (Compose-Service-Name)
 export ARANGO_URL="http://arangodb:8529"
 export ARANGO_ROOT_USER="root"
