@@ -8,7 +8,7 @@
 /* ── Header ── */
 .header {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
   align-items: center;
   background: #16213e;
   border-bottom: 1px solid rgba(255,255,255,0.08);
@@ -20,6 +20,7 @@
   display: flex;
   flex-direction: column;
   gap: 3px;
+  min-width: 0;
 }
 
 .headerCell.center {
@@ -58,6 +59,7 @@
   flex-direction: column;
   gap: 2px;
   margin-top: 2px;
+  min-width: 0;
 }
 
 .songItem {
@@ -122,6 +124,7 @@
   overflow-y: auto;
   padding-right: 12px;
   white-space: pre-wrap;
+  overflow-wrap: break-word;
 }
 
 .moderationTextDimmed {
