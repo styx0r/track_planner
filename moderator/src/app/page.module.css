@@ -127,6 +127,29 @@
   overflow-wrap: break-word;
 }
 
+.speakerBlock {
+  border-left: 4px solid transparent;
+  border-radius: 8px;
+  padding: 10px 16px;
+  margin-bottom: 14px;
+  text-align: left;
+}
+
+.speakerBlock:last-child {
+  margin-bottom: 0;
+}
+
+.speakerName {
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.speakerText {
+  white-space: pre-wrap;
+  text-align: left;
+}
+
 .moderationTextDimmed {
   color: #64748b;
   opacity: 0.45;
