@@ -468,6 +468,7 @@ const MusicTable = memo(function MusicTable({
       )
     },
     { field: 'bpm', headerName: 'BPM', width: 80, type: 'number' },
+    { field: 'key', headerName: 'Tonart', width: 90 },
     { field: 'metronome_offset', headerName: 'Offset (ms)', width: 100, type: 'number' },
     {
       field: 'duration',
