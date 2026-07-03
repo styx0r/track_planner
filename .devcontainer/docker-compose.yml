@@ -6,9 +6,9 @@ services:
     image: mcr.microsoft.com/devcontainers/javascript-node:20-bookworm
     volumes:
       - ..:/workspaces/track_planner:cached
+      - ${HOME}/.claude:/home/node/.claude:cached
     command: sleep infinity
     environment:
-      _ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       BACKEND_URL: http://localhost:3333
       NEXT_PUBLIC_BACKEND_URL: http://localhost:3333
       ARANGO_URL: http://arangodb:8529
