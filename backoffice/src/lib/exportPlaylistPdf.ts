@@ -162,7 +162,7 @@ export async function exportPlaylistPdf(playlist: PlaylistLike): Promise<void> {
     head: [['Nr.', 'Titel', 'Version', 'Interpret / Moderator', 'Darbietung', 'BPM', 'Tonart', 'Länge']],
     body,
     margin: { left: marginX, right: marginX },
-    styles: { font: 'helvetica', fontSize: 9, cellPadding: 1.8, lineColor: [0, 0, 0], lineWidth: 0.2, textColor: [0, 0, 0] },
+    styles: { font: 'helvetica', fontSize: 9, cellPadding: 1.8, lineColor: [0, 0, 0], lineWidth: 0.2, textColor: [0, 0, 0], valign: 'middle' },
     headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', lineColor: [0, 0, 0], lineWidth: 0.2 },
     // All columns centered (header + body) except Titel, which is left-aligned
     // and wraps onto multiple lines when it doesn't fit on one line.
