@@ -86,7 +86,7 @@ function sanitizeFilename(name: string): string {
 }
 
 export async function exportPlaylistPdf(playlist: PlaylistLike): Promise<void> {
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
   const marginX = 15;
 
@@ -116,7 +116,19 @@ export async function exportPlaylistPdf(playlist: PlaylistLike): Promise<void> {
       && item.moderation_text?.text?.trim().toLowerCase() === 'pause';
     if (isPause) {
       runningNr = 0; // section break — numbering restarts after a pause
-      return ['', 'Pause', '', '', '', '', '', ''];
+      // Pause row: single cell spanning all columns, white, centered.
+      return [
+        {
+          content: 'Pause',
+          colSpan: 8,
+          styles: {
+            halign: 'center' as const,
+            fontStyle: 'bold' as const,
+            fillColor: [255, 255, 255] as [number, number, number],
+            textColor: [0, 0, 0] as [number, number, number],
+          },
+        },
+      ];
     }
     runningNr += 1;
     if (item.type === 'TRACK') {
@@ -152,18 +164,27 @@ export async function exportPlaylistPdf(playlist: PlaylistLike): Promise<void> {
     margin: { left: marginX, right: marginX },
     styles: { font: 'helvetica', fontSize: 9, cellPadding: 1.8, lineColor: [0, 0, 0], lineWidth: 0.2, textColor: [0, 0, 0] },
     headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', lineColor: [0, 0, 0], lineWidth: 0.2 },
+    // All columns centered (header + body) except Titel, which is left-aligned
+    // and wraps onto multiple lines when it doesn't fit on one line.
     columnStyles: {
       0: { cellWidth: 12, halign: 'center' },
-      2: { cellWidth: 24 },
-      4: { cellWidth: 26 },
-      5: { cellWidth: 16, halign: 'center' },
-      6: { cellWidth: 22 },
-      7: { cellWidth: 18, halign: 'right' },
+      1: { cellWidth: 44, halign: 'left', overflow: 'linebreak' },
+      2: { cellWidth: 20, halign: 'center' },
+      3: { cellWidth: 34, halign: 'center' },
+      4: { cellWidth: 24, halign: 'center' },
+      5: { cellWidth: 14, halign: 'center' },
+      6: { cellWidth: 16, halign: 'center' },
+      7: { cellWidth: 16, halign: 'center' },
     },
-    // Moderation rows get a light gray background to stand out.
+    // Moderation rows get a light gray background to stand out — but the Pause
+    // row stays white (styled inline in the body above).
     didParseCell: (data) => {
       if (data.section === 'body') {
         const item = playlist.items[data.row.index];
+        const isPause =
+          item?.type === 'MODERATION_TEXT' &&
+          item.moderation_text?.text?.trim().toLowerCase() === 'pause';
+        if (isPause) return;
         if (item?.type === 'MODERATION_TEXT') {
           data.cell.styles.fillColor = [240, 240, 240];
           data.cell.styles.textColor = [90, 90, 90];
