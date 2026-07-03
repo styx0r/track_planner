@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Response } from 'express';
 import * as unzipper from 'unzipper';
+import { v4 as uuidv4 } from 'uuid';
 import { DatabaseService } from '../database.service';
 import { MinioObjectInfo, MinioService } from '../music/minio.service';
 
@@ -123,6 +124,19 @@ export class SnapshotService {
     await this.replaceDatabaseData(parsed.data);
     await this.replaceMinioFiles(parsed.files);
 
+    // Genres are not part of the snapshot, so imported songs may reference
+    // genres that don't exist yet. Create the missing ones so the songs aren't
+    // shown as orphaned ("–"). Never let this fail the import itself.
+    try {
+      await this.ensureGenresFromMusic(parsed.data.music);
+    } catch (error) {
+      this.logger.warn(
+        `Could not sync genres from imported songs: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+
     return {
       manifest: parsed.manifest,
       counts: this.countSnapshotData(parsed.data, parsed.files.map((file) => ({
@@ -238,6 +252,51 @@ export class SnapshotService {
       for (const doc of data[collectionName]) {
         await collection.save(doc);
       }
+    }
+  }
+
+  private async ensureGenresFromMusic(musicDocs: Record<string, unknown>[]): Promise<void> {
+    const db = this.databaseService.getDatabase();
+    const collection = db.collection('genres');
+    if (!(await collection.exists())) {
+      await collection.create();
+    }
+
+    // Distinct, trimmed, non-empty genre names from the imported songs.
+    const importedNames = new Map<string, string>(); // lowercase key -> original casing
+    for (const doc of musicDocs) {
+      const raw = doc['genre'];
+      if (typeof raw !== 'string') continue;
+      const name = raw.trim();
+      if (!name) continue;
+      const key = name.toLowerCase();
+      if (!importedNames.has(key)) importedNames.set(key, name);
+    }
+    if (importedNames.size === 0) return;
+
+    const cursor = await db.query('FOR doc IN @@collection RETURN doc', {
+      '@collection': 'genres',
+    });
+    const existing = await cursor.all();
+    const existingNames = new Set(
+      existing.map((g) => String(g.name ?? '').toLowerCase()),
+    );
+    let maxOrder = existing.reduce(
+      (max, g) => Math.max(max, Number(g.order ?? -1)),
+      -1,
+    );
+
+    let created = 0;
+    for (const [key, name] of importedNames) {
+      if (existingNames.has(key)) continue;
+      maxOrder += 1;
+      await collection.save({ uid: uuidv4(), name, order: maxOrder });
+      existingNames.add(key);
+      created += 1;
+    }
+
+    if (created > 0) {
+      this.logger.log(`Created ${created} missing genre(s) from imported songs`);
     }
   }
 
