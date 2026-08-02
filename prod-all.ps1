@@ -1,3 +1,30 @@
+
+
+$composeDir = "C:\Users\wks-admin\Documents\track_planner\deployment"
+
+Set-Location $composeDir
+
+Write-Host -NoNewline "Warten auf die Docker-Container "
+Start-Sleep -Seconds 30
+do {
+    $containers = docker compose ps --format json | ConvertFrom-Json
+
+    $notReady = $containers | Where-Object {
+        $_.State -ne "running" -or (
+            $_.Health -and $_.Health -ne "healthy"
+        )
+    }
+
+    if ($notReady.Count -gt 0 -or $containers.Count -eq 0) {
+        Write-Host -NoNewline "."
+        Start-Sleep -Seconds 1
+    }
+
+} until ($containers.Count -gt 0 -and $notReady.Count -eq 0)
+
+Write-Host ""
+Write-Host "Container bereit, Gospelplayer wird gestartet!" -ForegroundColor Black -BackgroundColor Green
+
 # Production START — serves the ALREADY-BUILT apps. Fast: no rebuild on start.
 # After changing code, run build-all.ps1 first; afterwards just run this to (re)start.
 # These are backend RUNTIME variables (MinIO etc.); the frontend URL is already baked in at build time.
