@@ -1,11 +1,11 @@
-Start-Sleep -Seconds 30
+
 
 $composeDir = "C:\Users\wks-admin\Documents\track_planner\deployment"
 
 Set-Location $composeDir
 
 Write-Host -NoNewline "Warten auf die Docker-Container "
-
+Start-Sleep -Seconds 30
 do {
     $containers = docker compose ps --format json | ConvertFrom-Json
 
