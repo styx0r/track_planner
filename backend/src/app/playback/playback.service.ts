@@ -38,6 +38,11 @@ export class PlaybackService {
   // Full-items navigation tracking
   private currentItemIndex: number | undefined = undefined;
 
+  // Bumped on every play/playTrack/next/previous/loadPlaylist call so a stale,
+  // still-in-flight call (e.g. superseded by rapid track switching) can detect
+  // it's no longer current and bail out instead of clobbering shared state.
+  private opSeq = 0;
+
   // Performance start time (set by mixing desk, persists across tracks)
   private performanceStartTime: number | null = null;
 
@@ -113,10 +118,13 @@ export class PlaybackService {
   /**
    * Load a playlist without starting audio — navigates to first item in browse mode
    */
-  async loadPlaylist(playlistUid: string): Promise<PlaybackState> {
+  async loadPlaylist(playlistUid: string, token: number = ++this.opSeq): Promise<PlaybackState> {
     await this.stop();
+    if (token !== this.opSeq) return this.getState();
+
     const playlist = await this.playlistService.getPlaylist(playlistUid);
     if (!playlist) throw new NotFoundException('Playlist not found');
+    if (token !== this.opSeq) return this.getState();
 
     this.currentPlaylist = playlist;
     const items: any[] = playlist.items ?? [];
@@ -131,7 +139,7 @@ export class PlaybackService {
     };
 
     if (items.length > 0) {
-      await this.navigateToItem(initialItemIndex, false);
+      await this.navigateToItem(initialItemIndex, false, token);
     } else {
       this.broadcast(WS_EVENTS.PLAYBACK_STATE, this.getState());
     }
@@ -149,11 +157,13 @@ export class PlaybackService {
     playlistUid: string,
     trackIndex: number = 0,
     countInBeats?: number,
+    token: number = ++this.opSeq,
   ): Promise<PlaybackState> {
     this.logger.log(`Starting playback for playlist: ${playlistUid}, track: ${trackIndex}`);
 
     // Stop any current playback
     await this.stop();
+    if (token !== this.opSeq) return this.getState();
 
     // Fetch playlist
     const playlist = await this.playlistService.getPlaylist(playlistUid);
@@ -161,6 +171,7 @@ export class PlaybackService {
     if (!playlist || trackItems.length === 0) {
       throw new NotFoundException('Playlist not found or empty');
     }
+    if (token !== this.opSeq) return this.getState();
 
     this.currentPlaylist = playlist;
 
@@ -173,6 +184,7 @@ export class PlaybackService {
 
     const track = trackItems[trackIndex];
     const music = await this.musicService.getMusicById(track.music_uid!);
+    if (token !== this.opSeq) return this.getState();
 
     // Use provided countInBeats or default
     const effectiveCountInBeats = countInBeats ?? this.defaultCountInBeats;
@@ -244,23 +256,28 @@ export class PlaybackService {
 
     // Schedule playback to start at the exact song start time
     this.playbackTimeout = setTimeout(async () => {
+      if (token !== this.opSeq) return;
       try {
-        await this.startAudioPlayback(await this.getPlaybackFileUrl(music), music.file_name || 'audio');
+        await this.startAudioPlayback(await this.getPlaybackFileUrl(music), music.file_name || 'audio', 0, token);
       } catch (error) {
         const msg = error instanceof Error ? error.message : 'Unknown error';
         this.logger.error(`Failed to start playback: ${msg}`);
-        this.currentState.status = PlaybackStatus.IDLE;
+        if (token === this.opSeq) {
+          this.currentState.status = PlaybackStatus.IDLE;
+        }
       }
     }, delayUntilSongStart);
 
     return this.getState();
   }
 
-  async playTrack(musicUid: string, positionMs: number = 0): Promise<PlaybackState> {
+  async playTrack(musicUid: string, positionMs: number = 0, token: number = ++this.opSeq): Promise<PlaybackState> {
     await this.stop();
+    if (token !== this.opSeq) return this.getState();
 
     const music = await this.musicService.getMusicById(musicUid);
     if (!music) throw new NotFoundException('Music not found');
+    if (token !== this.opSeq) return this.getState();
 
     const bpm = music.bpm || this.metronomeState.bpm;
     const effectiveCountInBeats = this.defaultCountInBeats;
@@ -302,12 +319,15 @@ export class PlaybackService {
 
     const delayUntilSongStart = songStartTime - Date.now();
     this.playbackTimeout = setTimeout(async () => {
+      if (token !== this.opSeq) return;
       try {
-        await this.startAudioPlayback(await this.getPlaybackFileUrl(music), music.file_name || 'audio', positionMs);
+        await this.startAudioPlayback(await this.getPlaybackFileUrl(music), music.file_name || 'audio', positionMs, token);
       } catch (error) {
         const msg = error instanceof Error ? error.message : 'Unknown error';
         this.logger.error(`Failed to start playback: ${msg}`);
-        this.currentState.status = PlaybackStatus.IDLE;
+        if (token === this.opSeq) {
+          this.currentState.status = PlaybackStatus.IDLE;
+        }
       }
     }, delayUntilSongStart);
 
@@ -317,18 +337,54 @@ export class PlaybackService {
   /**
    * Start actual audio playback using external player
    */
-  private async startAudioPlayback(fileUrl: string, fileName: string, startPositionMs: number = 0): Promise<void> {
+  private async startAudioPlayback(
+    fileUrl: string,
+    fileName: string,
+    startPositionMs: number = 0,
+    token?: number,
+  ): Promise<void> {
+    // Use a local variable for the path throughout this call instead of re-reading
+    // the shared `tempFilePath` field after the download — a concurrent, superseding
+    // call could otherwise have overwritten that field while we were downloading.
+    const tempDir = os.tmpdir();
+    const tempPath = path.join(tempDir, `track_planner_${Date.now()}_${fileName}`);
     try {
-      // Download file to temp location for playback
-      const tempDir = os.tmpdir();
-      this.tempFilePath = path.join(tempDir, `track_planner_${Date.now()}_${fileName}`);
-      await this.downloadFile(fileUrl, this.tempFilePath);
-      await this.startPlayerFromFile(this.tempFilePath, startPositionMs);
+      this.tempFilePath = tempPath;
+      await this.downloadFile(fileUrl, tempPath);
+
+      if (token !== undefined && token !== this.opSeq) {
+        // Superseded by a newer play/next/previous call while downloading — discard.
+        this.cleanupTempFile(tempPath);
+        return;
+      }
+
+      await this.startPlayerFromFile(tempPath, startPositionMs);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`Failed to start audio playback: ${message}`);
-      this.currentState.status = PlaybackStatus.IDLE;
+      if (token === undefined || token === this.opSeq) {
+        this.currentState.status = PlaybackStatus.IDLE;
+      }
+      this.cleanupTempFile(tempPath);
       throw error;
+    }
+  }
+
+  /**
+   * Remove a temp download file, tolerating it already being gone (e.g. removed
+   * by a concurrent stop/cleanup). Also clears `tempFilePath` if it still points here.
+   */
+  private cleanupTempFile(filePath: string): void {
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Could not remove temp file ${filePath}: ${message}`);
+    }
+    if (this.tempFilePath === filePath) {
+      this.tempFilePath = null;
     }
   }
 
@@ -379,17 +435,25 @@ export class PlaybackService {
     return new Promise((resolve, reject) => {
       const file = fs.createWriteStream(destPath);
       const protocol = url.startsWith('https') ? https : http;
-      
+
+      // A write-stream 'error' event with no listener is thrown as an uncaught
+      // exception and takes down the whole process — always handle it explicitly.
+      file.on('error', (err) => {
+        fs.unlink(destPath, () => {}); // Delete partial file
+        reject(err);
+      });
+
       protocol.get(url, (response) => {
         // Handle redirects
         if (response.statusCode === 301 || response.statusCode === 302) {
           const redirectUrl = response.headers.location;
           if (redirectUrl) {
+            file.close();
             this.downloadFile(redirectUrl, destPath).then(resolve).catch(reject);
             return;
           }
         }
-        
+
         response.pipe(file);
         file.on('finish', () => {
           file.close();
@@ -421,6 +485,11 @@ export class PlaybackService {
    */
   private async tryStartPlayer(player: string, filePath: string, startPositionMs: number = 0): Promise<void> {
     return new Promise((resolve, reject) => {
+      if (!filePath) {
+        reject(new Error('No file path available for playback'));
+        return;
+      }
+
       let args: string[];
       const startSec = (startPositionMs / 1000).toFixed(3);
 
@@ -479,9 +548,8 @@ export class PlaybackService {
     }
 
     // Clean up temp file
-    if (this.tempFilePath && fs.existsSync(this.tempFilePath)) {
-      fs.unlinkSync(this.tempFilePath);
-      this.tempFilePath = null;
+    if (this.tempFilePath) {
+      this.cleanupTempFile(this.tempFilePath);
     }
 
     // Track finished — go back to idle
@@ -577,9 +645,8 @@ export class PlaybackService {
       this.playerProcess.kill('SIGTERM');
       this.playerProcess = null;
     }
-    if (this.tempFilePath && fs.existsSync(this.tempFilePath)) {
-      try { fs.unlinkSync(this.tempFilePath); } catch {}
-      this.tempFilePath = null;
+    if (this.tempFilePath) {
+      this.cleanupTempFile(this.tempFilePath);
     }
     this.playbackStartTime = null;
   }
@@ -587,7 +654,7 @@ export class PlaybackService {
   /**
    * Load track info into state without starting audio (used for browse navigation)
    */
-  private async loadTrackInfo(trackIndex: number, itemIndex: number): Promise<void> {
+  private async loadTrackInfo(trackIndex: number, itemIndex: number, token: number): Promise<void> {
     const items: any[] = this.currentPlaylist?.items ?? [];
     const trackItems = items.filter((i: any) => i.type === 'TRACK');
     const track = trackItems[trackIndex];
@@ -598,14 +665,24 @@ export class PlaybackService {
 
     this.logger.log(`loadTrackInfo: loading track ${trackIndex} (item ${itemIndex}), music_uid=${track.music_uid}`);
 
+    // Advance the internal navigation cursor synchronously — before the async
+    // music load — so rapid next/previous clicks each move exactly one step.
+    // Without this, several clicks fired while the first track is still loading
+    // would all read the same stale index and collapse into a single step.
+    // Note: only the private cursor moves here; the broadcast state
+    // (currentState.currentItemIndex) is still updated behind the token guard
+    // below, so only the winning load pushes actual content to clients.
+    this.currentItemIndex = itemIndex;
+
     try {
       const music = await this.musicService.getMusicById(track.music_uid);
+      if (token !== this.opSeq) return; // superseded by a newer navigation while fetching
+
       const bpm = music.bpm || this.metronomeState.bpm;
       const effectivePerformer = track.performer || (music as any).performer || 'Chor';
 
       this.logger.log(`loadTrackInfo: loaded "${music.title}", bpm=${bpm}, timeSignature=${(music as any).time_signature}, duration=${music.duration}, sheets=${((music as any).sheets || []).length}`);
 
-      this.currentItemIndex = itemIndex;
       this.currentState = {
         ...this.currentState,
         status: PlaybackStatus.IDLE,
@@ -633,9 +710,10 @@ export class PlaybackService {
       this.broadcast(WS_EVENTS.PLAYBACK_STATE, this.getState());
       this.broadcast(WS_EVENTS.METRONOME_STATE, this.getMetronomeState());
     } catch (err) {
+      if (token !== this.opSeq) return; // superseded by a newer navigation
       const msg = err instanceof Error ? err.message : String(err);
       this.logger.error(`loadTrackInfo: failed to load music for track ${trackIndex}: ${msg}`);
-      this.currentItemIndex = itemIndex;
+      // currentItemIndex was already advanced synchronously above.
       this.currentState = { ...this.currentState, currentItemIndex: itemIndex, currentTrackIndex: trackIndex };
       this.broadcast(WS_EVENTS.PLAYBACK_STATE, this.getState());
     }
@@ -645,7 +723,7 @@ export class PlaybackService {
    * Navigate to a specific item by full-array index (TRACK or MODERATION_TEXT)
    * When shouldPlay=false, just loads info without starting audio (browse mode)
    */
-  async navigateToItem(itemIndex: number, shouldPlay = true): Promise<PlaybackState> {
+  async navigateToItem(itemIndex: number, shouldPlay = true, token: number = ++this.opSeq): Promise<PlaybackState> {
     const items: any[] = this.currentPlaylist?.items ?? [];
     if (itemIndex < 0 || itemIndex >= items.length) {
       return shouldPlay ? this.stop() : this.getState();
@@ -658,15 +736,16 @@ export class PlaybackService {
         .slice(0, itemIndex + 1)
         .filter((i: any) => i.type === 'TRACK').length - 1;
       if (shouldPlay) {
-        return this.play(this.currentState.playlistUid!, trackIndex, this.metronomeState.countInBeats);
+        return this.play(this.currentState.playlistUid!, trackIndex, this.metronomeState.countInBeats, token);
       } else {
-        await this.loadTrackInfo(trackIndex, itemIndex);
+        await this.loadTrackInfo(trackIndex, itemIndex, token);
         return this.getState();
       }
     } else {
       // MODERATION_TEXT
       if (shouldPlay) {
         await this.stopAudioOnly();
+        if (token !== this.opSeq) return this.getState();
       }
       this.currentItemIndex = itemIndex;
       this.currentState = {
@@ -749,10 +828,12 @@ export class PlaybackService {
    * Skip to next item (TRACK or MODERATION_TEXT)
    */
   async next(): Promise<PlaybackState> {
+    const token = ++this.opSeq;
     if (!this.currentPlaylist && this.currentState.playlistUid) {
-      await this.loadPlaylist(this.currentState.playlistUid);
+      await this.loadPlaylist(this.currentState.playlistUid, token);
     }
     if (!this.currentPlaylist) return this.getState();
+    if (token !== this.opSeq) return this.getState();
     const items: any[] = this.currentPlaylist.items ?? [];
     const nextIdx = (this.currentItemIndex ?? -1) + 1;
     const hasAudioPendingOrPlaying = this.currentState.status === PlaybackStatus.PLAYING ||
@@ -762,18 +843,21 @@ export class PlaybackService {
     if (nextIdx >= items.length) return hasAudioPendingOrPlaying ? this.stop() : this.getState();
     if (hasAudioPendingOrPlaying) {
       await this.stopAudioOnly();
+      if (token !== this.opSeq) return this.getState();
     }
-    return this.navigateToItem(nextIdx, false);
+    return this.navigateToItem(nextIdx, false, token);
   }
 
   /**
    * Go to previous item (TRACK or MODERATION_TEXT)
    */
   async previous(): Promise<PlaybackState> {
+    const token = ++this.opSeq;
     if (!this.currentPlaylist && this.currentState.playlistUid) {
-      await this.loadPlaylist(this.currentState.playlistUid);
+      await this.loadPlaylist(this.currentState.playlistUid, token);
     }
     if (!this.currentPlaylist) return this.getState();
+    if (token !== this.opSeq) return this.getState();
     const prevIdx = Math.max(0, (this.currentItemIndex ?? 0) - 1);
     const hasAudioPendingOrPlaying = this.currentState.status === PlaybackStatus.PLAYING ||
                                      this.currentState.status === PlaybackStatus.COUNT_IN ||
@@ -781,8 +865,9 @@ export class PlaybackService {
                                      this.currentState.status === PlaybackStatus.PAUSED;
     if (hasAudioPendingOrPlaying) {
       await this.stopAudioOnly();
+      if (token !== this.opSeq) return this.getState();
     }
-    return this.navigateToItem(prevIdx, false);
+    return this.navigateToItem(prevIdx, false, token);
   }
 
   /**
