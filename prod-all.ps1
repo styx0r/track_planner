@@ -37,7 +37,7 @@ $env:MINIO_REGION = "eu-central-1"
 # Full path to ffmpeg.exe (used for server-side waveform generation). Required on
 # Windows where ffmpeg is usually not on PATH — without it the conductor shows a
 # fallback/dummy waveform. Adjust the path to your actual ffmpeg.exe location.
-$env:FFMPEG_PATH = "C:\0_FASTDATA\ffmpeg\bin\ffmpeg.exe"
+$env:FFMPEG_PATH = "C:\0_FASTDATA\mpv\ffmpeg.exe"
 # Conductor unlock PIN (only used by the safety-net build below; it is baked in at build time)
 $env:NEXT_PUBLIC_CONDUCTOR_PIN = "1234"
 
