@@ -4,6 +4,7 @@ import { MinioService } from './minio.service';
 import { CreateMusicInput, UpdateMusicInput, MusicSearchInput, Music, SheetMusic } from './music.dto';
 import { v4 as uuidv4 } from 'uuid';
 import * as path from 'path';
+import * as fs from 'fs';
 import { spawn } from 'child_process';
 
 interface MulterFile {
@@ -43,11 +44,24 @@ export class MusicService {
     private minioService: MinioService,
   ) {}
 
+  /**
+   * Resolve the ffmpeg executable. Uses FFMPEG_PATH when it points to an existing
+   * file (useful on Windows where ffmpeg is often not on PATH), otherwise falls
+   * back to 'ffmpeg' on PATH (works in containers). Mirrors the MPV_PATH handling
+   * in PlaybackService.
+   */
+  private getFfmpegExecutable(): string {
+    if (process.env.FFMPEG_PATH && fs.existsSync(process.env.FFMPEG_PATH)) {
+      return process.env.FFMPEG_PATH;
+    }
+    return 'ffmpeg';
+  }
+
   private async generateWaveformFromBuffer(buffer: Buffer, label: string): Promise<number[] | undefined> {
     if (!buffer.length) return undefined;
 
     return new Promise((resolve) => {
-      const ffmpeg = spawn('ffmpeg', [
+      const ffmpeg = spawn(this.getFfmpegExecutable(), [
         '-hide_banner',
         '-loglevel',
         'error',
