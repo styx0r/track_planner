@@ -35,8 +35,9 @@ function collectTrackTitles(items: PlaylistItem[], startIndex: number, direction
     const item = items[i];
     if (!item || item.type === PlaylistItemType.MODERATION_TEXT) break;
     if (item.type === PlaylistItemType.TRACK) {
-      if (direction === 1) titles.push(item.music?.title ?? '?');
-      else titles.unshift(item.music?.title ?? '?');
+      const title = `${item.is_encore ? 'Z: ' : ''}${item.music?.title ?? '?'}`;
+      if (direction === 1) titles.push(title);
+      else titles.unshift(title);
     }
   }
 

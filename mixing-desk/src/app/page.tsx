@@ -65,7 +65,7 @@ function formatPresentationType(type: PresentationType | undefined): string {
 export default function MixingDeskPage() {
   const {
     isConnected, isLoading, playbackState, syncResult,
-    connect, startPerformance, resetPerformance, loadPlaylist, resetProgram, setDisplayLock,
+    connect, startPerformance, resetPerformance, loadPlaylist, resetProgram, setDisplayLock, next,
   } = usePlayback();
 
   const now = useClock();
@@ -73,6 +73,7 @@ export default function MixingDeskPage() {
   const currentRowRef = useRef<HTMLDivElement>(null);
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [showPlaylistResetDialog, setShowPlaylistResetDialog] = useState(false);
+  const [showNextDialog, setShowNextDialog] = useState(false);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [selectedPlaylistUid, setSelectedPlaylistUid] = useState<string | null>(null);
   const [playlistFetchState, setPlaylistFetchState] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle');
@@ -149,6 +150,11 @@ export default function MixingDeskPage() {
     setShowPlaylistResetDialog(false);
   }
 
+  function confirmNext() {
+    next();
+    setShowNextDialog(false);
+  }
+
   if (!isConnected && isLoading) {
     return (
       <div className={styles.connecting}>
@@ -157,6 +163,21 @@ export default function MixingDeskPage() {
       </div>
     );
   }
+
+  // FOH fallback navigation: jump to the next program item (in case the conductor forgets).
+  const canGoNext = !!playbackState.playlistUid
+    && effectivePlaylistItems.length > 0
+    && currentItemIndex < effectivePlaylistItems.length - 1;
+  const nextProgramItem = canGoNext ? effectivePlaylistItems[currentItemIndex + 1] : undefined;
+
+  const describeItem = (item: (typeof effectivePlaylistItems)[number] | undefined): string => {
+    if (!item) return '–';
+    if (item.type === PlaylistItemType.TRACK) {
+      return `${item.is_encore ? 'Z: ' : ''}${item.music?.title ?? '?'}`;
+    }
+    if (item.moderation_text?.text?.trim().toLowerCase() === 'pause') return 'Pause';
+    return item.performer ? `Moderation: ${item.performer}` : 'Moderation';
+  };
 
   // Row numbering: a "Pause" moderation acts as a section break — numbering restarts at 1 after it.
   let runningNumber = 0;
@@ -204,6 +225,15 @@ export default function MixingDeskPage() {
         </div>
 
         <div className={styles.rightInfo}>
+          {canGoNext && (
+            <button
+              className={styles.nextItemBtn}
+              onClick={() => setShowNextDialog(true)}
+              title="Zum nächsten Programmpunkt springen"
+            >
+              Nächster Programmpunkt ⏭
+            </button>
+          )}
           <button
             className={`${styles.lockBtn} ${displayLocked ? styles.lockBtnActive : ''}`}
             onClick={() => setDisplayLock(!displayLocked)}
@@ -269,7 +299,7 @@ export default function MixingDeskPage() {
           else if (isCurrent && isMod) rowClass += ` ${styles.rowModerationCurrent}`;
 
           const title = isTrack
-            ? (item.music?.title ?? '?')
+            ? `${item.is_encore ? 'Z: ' : ''}${item.music?.title ?? '?'}`
             : isPause
               ? 'Pause'
               : item.performer ? `Moderation: ${item.performer}` : 'Moderation';
@@ -313,6 +343,27 @@ export default function MixingDeskPage() {
               </button>
               <button className={styles.dialogConfirm} onClick={confirmReset}>
                 Zurücksetzen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Next-item confirmation dialog */}
+      {showNextDialog && (
+        <div className={styles.dialogOverlay}>
+          <div className={styles.dialog}>
+            <div className={styles.dialogTitle}>Zum nächsten Programmpunkt springen?</div>
+            <div className={styles.dialogBody}>
+              Aktuell: <strong>{describeItem(effectivePlaylistItems[currentItemIndex])}</strong><br />
+              Nächster: <strong>{describeItem(nextProgramItem)}</strong><br />
+              Alle Ansichten (Conductor, Moderator) wechseln mit.
+            </div>
+            <div className={styles.dialogActions}>
+              <button className={styles.dialogCancel} onClick={() => setShowNextDialog(false)}>
+                Abbrechen
+              </button>
+              <button className={styles.dialogConfirm} onClick={confirmNext}>
+                Weiter springen
               </button>
             </div>
           </div>

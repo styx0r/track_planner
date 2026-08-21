@@ -108,6 +108,9 @@ export class PlaylistItem {
   @Field(() => Boolean, { nullable: true })
   metronome_enabled_override?: boolean;
 
+  @Field(() => Boolean, { nullable: true, description: 'Marks a track as encore (Zugabe)' })
+  is_encore?: boolean;
+
   @Field(() => PlaylistTrackSummary, { nullable: true })
   music?: PlaylistTrackSummary;
 
@@ -165,6 +168,11 @@ export class PlaylistItemInput {
   @IsOptional()
   @IsBoolean()
   metronome_enabled_override?: boolean;
+
+  @Field(() => Boolean, { nullable: true })
+  @IsOptional()
+  @IsBoolean()
+  is_encore?: boolean;
 
   @Field({ nullable: true })
   @IsOptional()

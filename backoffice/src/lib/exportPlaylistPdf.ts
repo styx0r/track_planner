@@ -18,6 +18,7 @@ interface MusicSummary {
 interface PlaylistItemData {
   type: PlaylistItemType;
   performer?: string;
+  is_encore?: boolean | null;
   music?: MusicSummary;
   moderation_text?: { text: string; author: string; category: string };
 }
@@ -58,24 +59,42 @@ function totalMinutes(items: PlaylistItemData[]): number {
   return Math.round(seconds / 60);
 }
 
+// The logo is only ~30mm wide in the PDF; render it at ~300dpi for that size.
+// Without downscaling, jsPDF embeds the full-resolution PNG (2438×2013 RGBA)
+// as uncompressed raw data, which blows the PDF up to ~18 MB.
+const LOGO_TARGET_WIDTH_PX = 360;
+
 async function loadLogo(): Promise<{ dataUrl: string; ratio: number } | null> {
   try {
     const res = await fetch(LOGO_URL);
     if (!res.ok) return null;
     const blob = await res.blob();
-    const dataUrl = await new Promise<string>((resolve, reject) => {
+    const originalDataUrl = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result as string);
       reader.onerror = reject;
       reader.readAsDataURL(blob);
     });
-    const ratio = await new Promise<number>((resolve) => {
-      const img = new Image();
-      img.onload = () => resolve(img.width / img.height);
-      img.onerror = () => resolve(1.21); // fallback to the known logo aspect ratio
-      img.src = dataUrl;
+    const img = await new Promise<HTMLImageElement | null>((resolve) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => resolve(null);
+      el.src = originalDataUrl;
     });
-    return { dataUrl, ratio };
+    if (!img) return null;
+
+    const ratio = img.width / img.height;
+
+    // Downscale to the size actually needed in the PDF.
+    const targetW = Math.min(LOGO_TARGET_WIDTH_PX, img.width);
+    const targetH = Math.round(targetW / ratio);
+    const canvas = document.createElement('canvas');
+    canvas.width = targetW;
+    canvas.height = targetH;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return { dataUrl: originalDataUrl, ratio };
+    ctx.drawImage(img, 0, 0, targetW, targetH);
+    return { dataUrl: canvas.toDataURL('image/png'), ratio };
   } catch {
     return null;
   }
@@ -95,7 +114,7 @@ export async function exportPlaylistPdf(playlist: PlaylistLike): Promise<void> {
   if (logo) {
     const logoW = 30;
     const logoH = logoW / logo.ratio;
-    doc.addImage(logo.dataUrl, 'PNG', pageWidth - marginX - logoW, 12, logoW, logoH);
+    doc.addImage(logo.dataUrl, 'PNG', pageWidth - marginX - logoW, 12, logoW, logoH, undefined, 'FAST');
   }
 
   // ── Title ──
@@ -135,7 +154,7 @@ export async function exportPlaylistPdf(playlist: PlaylistLike): Promise<void> {
       const m = item.music;
       return [
         String(runningNr),
-        m?.title ?? '',
+        `${item.is_encore ? 'Z: ' : ''}${m?.title ?? ''}`,
         m?.version ?? '',
         resolvePerformer(item),
         m?.presentation_type ? PRESENTATION_LABELS[m.presentation_type] : '',

@@ -83,6 +83,7 @@ interface PlaylistItemData {
   // TRACK
   music_uid?: string;
   metronome_enabled_override?: boolean | null;
+  is_encore?: boolean | null;
   music?: MusicSummary;
   // MODERATION_TEXT
   moderation_text_uid?: string;
@@ -114,6 +115,13 @@ const musicSearchFilter = createFilterOptions<MusicSummary>({
     `${s.title} ${s.version ?? ''} ${s.performer ?? ''} ${s.author ?? ''} ${s.presentation_type ? PRESENTATION_LABELS[s.presentation_type] : ''}`,
 });
 
+// Label for a moderation item in lists — empty placeholder moderations get a clear hint.
+function moderationLabel(text: string | undefined): string {
+  const trimmed = text?.trim();
+  if (!trimmed) return '(Leere Moderation – Text folgt)';
+  return `${trimmed.slice(0, 60)}…`;
+}
+
 function isPauseModeration(item: { type: string; moderation_text?: { text?: string } }): boolean {
   return item.type === 'MODERATION_TEXT'
     && item.moderation_text?.text?.trim().toLowerCase() === 'pause';
@@ -142,6 +150,7 @@ export default function PlaylistsPage() {
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [music, setMusic] = useState<MusicSummary[]>([]);
   const [moderationTexts, setModerationTexts] = useState<ModerationText[]>([]);
+  const [moderationCategories, setModerationCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
 
@@ -201,6 +210,7 @@ export default function PlaylistsPage() {
                   performer
                   music_uid
                   metronome_enabled_override
+                  is_encore
                   music { uid title author version performer bpm duration time_signature key presentation_type metronome_default_enabled }
                   moderation_text_uid
                   moderation_text { uid text author category }
@@ -266,11 +276,29 @@ export default function PlaylistsPage() {
     }
   }, []);
 
+  const loadModerationCategories = useCallback(async () => {
+    try {
+      const response = await fetch('/api/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `query GetModerationCategories { moderationCategories { uid name order } }`,
+        }),
+      });
+      const data = await response.json();
+      if (data.errors) throw new Error(data.errors[0].message);
+      setModerationCategories(data.data.moderationCategories.map((c: { name: string }) => c.name));
+    } catch {
+      // optional
+    }
+  }, []);
+
   useEffect(() => {
     loadPlaylists();
     loadMusic();
     loadModerationTexts();
-  }, [loadPlaylists, loadMusic, loadModerationTexts]);
+    loadModerationCategories();
+  }, [loadPlaylists, loadMusic, loadModerationTexts, loadModerationCategories]);
 
   const handleCreatePlaylistClick = useCallback(() => {
     setEditingPlaylist(null);
@@ -338,6 +366,56 @@ export default function PlaylistsPage() {
     setModerationToAdd('');
   }, [moderationToAdd, moderationTexts]);
 
+  // Creates an empty placeholder moderation text in the moderation DB and
+  // inserts it into the playlist — the text just needs to be filled in later.
+  const handleAddEmptyModeration = useCallback(async () => {
+    const category = moderationCategories[0] ?? 'Ganzjährig';
+    try {
+      const response = await fetch('/api/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            mutation CreateModerationText($input: CreateModerationTextInput!) {
+              createModerationText(input: $input) { uid author creation_date category text }
+            }
+          `,
+          variables: {
+            input: {
+              author: '',
+              creation_date: new Date().toISOString(),
+              category,
+              text: '',
+            },
+          },
+        }),
+      });
+      const data = await response.json();
+      if (data.errors) throw new Error(data.errors[0].message);
+      const created: ModerationText = data.data.createModerationText;
+
+      setModerationTexts((prev) => [created, ...prev]);
+      setPlaylistItems((prev) => [
+        ...prev,
+        {
+          type: 'MODERATION_TEXT',
+          order: prev.length,
+          moderation_text_uid: created.uid,
+          moderation_text: { uid: created.uid, text: created.text, author: created.author, category: created.category },
+          localId: `new-mod-${created.uid}`,
+          expanded: false,
+        },
+      ]);
+      setSnackbar({
+        open: true,
+        message: 'Leere Moderation angelegt – Text kann in der Moderations-DB eingetragen werden.',
+        severity: 'success',
+      });
+    } catch (error) {
+      setSnackbar({ open: true, message: `Leere Moderation anlegen fehlgeschlagen: ${error}`, severity: 'error' });
+    }
+  }, [moderationCategories]);
+
   const moveItem = useCallback((index: number, direction: -1 | 1) => {
     setPlaylistItems((prev) => {
       const targetIndex = index + direction;
@@ -357,7 +435,7 @@ export default function PlaylistsPage() {
   }, []);
 
   const updateItemField = useCallback(
-    (localId: string, field: 'performer' | 'metronome_enabled_override', value: string | boolean | null) => {
+    (localId: string, field: 'performer' | 'metronome_enabled_override' | 'is_encore', value: string | boolean | null) => {
       setPlaylistItems((prev) =>
         prev.map((i) => (i.localId === localId ? { ...i, [field]: value } : i))
       );
@@ -389,6 +467,7 @@ export default function PlaylistsPage() {
           item.type === 'TRACK'
             ? (item.metronome_enabled_override === null ? undefined : item.metronome_enabled_override)
             : undefined,
+        is_encore: item.type === 'TRACK' ? (item.is_encore || undefined) : undefined,
         moderation_text_uid: item.type === 'MODERATION_TEXT' ? item.moderation_text_uid : undefined,
       })),
     };
@@ -542,7 +621,7 @@ export default function PlaylistsPage() {
                                   primary={
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                       <MusicNote sx={{ fontSize: 14, color: 'text.secondary' }} />
-                                      {`${nums[i]}. ${item.music?.title ?? 'Unknown track'}${item.music?.version ? ` (${item.music.version})` : ''}`}
+                                      {`${nums[i]}. ${item.is_encore ? 'Z: ' : ''}${item.music?.title ?? 'Unknown track'}${item.music?.version ? ` (${item.music.version})` : ''}`}
                                     </Box>
                                   }
                                   secondary={[
@@ -566,7 +645,7 @@ export default function PlaylistsPage() {
                                   primary={
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                       <Comment sx={{ fontSize: 14, color: 'text.secondary' }} />
-                                      {`${nums[i]}. ${item.moderation_text?.text?.slice(0, 60) ?? 'Moderation text'}…`}
+                                      {`${nums[i]}. ${moderationLabel(item.moderation_text?.text)}`}
                                     </Box>
                                   }
                                   secondary={[
@@ -644,10 +723,10 @@ export default function PlaylistsPage() {
                     <ListItemText
                       primary={
                         item.type === 'TRACK'
-                          ? `${nums[index]}. ${item.music?.title ?? 'Unknown'}${item.music?.version ? ` (${item.music.version})` : ''}`
+                          ? `${nums[index]}. ${item.is_encore ? 'Z: ' : ''}${item.music?.title ?? 'Unknown'}${item.music?.version ? ` (${item.music.version})` : ''}`
                           : isPauseModeration(item)
                           ? 'Pause'
-                          : `${nums[index]}. ${item.moderation_text?.text?.slice(0, 60) ?? 'Moderation text'}…`
+                          : `${nums[index]}. ${moderationLabel(item.moderation_text?.text)}`
                       }
                       secondary={
                         item.type === 'TRACK'
@@ -699,6 +778,29 @@ export default function PlaylistsPage() {
                         }}
                         sx={{ mb: item.type === 'TRACK' ? 1.5 : 0 }}
                       />
+                      {item.type === 'TRACK' && (
+                        <Box sx={{ mb: 1.5 }}>
+                          <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
+                            Zugabe
+                          </Typography>
+                          <ToggleButtonGroup
+                            size="small"
+                            exclusive
+                            value={item.is_encore ? 'yes' : 'no'}
+                            onChange={(_, val) => {
+                              if (val === null) return;
+                              updateItemField(item.localId, 'is_encore', val === 'yes');
+                            }}
+                          >
+                            <ToggleButton value="no">Nein</ToggleButton>
+                            <ToggleButton value="yes">
+                              <Tooltip title='Wird im Player und im Programm mit "Z:" gekennzeichnet'>
+                                <span>Z: Zugabe</span>
+                              </Tooltip>
+                            </ToggleButton>
+                          </ToggleButtonGroup>
+                        </Box>
+                      )}
                       {item.type === 'TRACK' && (
                         <Box>
                           <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
@@ -799,7 +901,7 @@ export default function PlaylistsPage() {
               >
                 {moderationTexts.map((mt) => (
                   <MenuItem key={mt.uid} value={mt.uid}>
-                    [{mt.category}] {mt.author} — {mt.text.slice(0, 60)}{mt.text.length > 60 ? '…' : ''}
+                    [{mt.category}] {mt.author} — {mt.text.trim() ? `${mt.text.slice(0, 60)}${mt.text.length > 60 ? '…' : ''}` : '(Leere Moderation)'}
                   </MenuItem>
                 ))}
               </Select>
@@ -812,6 +914,15 @@ export default function PlaylistsPage() {
             >
               Add
             </Button>
+          </Box>
+
+          {/* Add empty placeholder moderation */}
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1.5 }}>
+            <Tooltip title="Legt einen leeren Platzhalter in der Moderations-DB an – der Text muss dort nur noch eingetragen werden">
+              <Button variant="outlined" onClick={handleAddEmptyModeration} startIcon={<Comment />}>
+                Neue leere Moderation
+              </Button>
+            </Tooltip>
           </Box>
         </DialogContent>
         <DialogActions>

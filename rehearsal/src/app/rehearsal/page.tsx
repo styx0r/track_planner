@@ -34,10 +34,10 @@ function formatClock(ts: number) {
   });
 }
 
-function getItemLabel(item: { type: string; music?: { title?: string; version?: string }; performer?: string; moderation_text?: { author?: string; text?: string } } | undefined): string {
+function getItemLabel(item: { type: string; music?: { title?: string; version?: string }; performer?: string; is_encore?: boolean; moderation_text?: { author?: string; text?: string } } | undefined): string {
   if (!item) return '';
   if (item.type === PlaylistItemType.TRACK) {
-    const title = item.music?.title ?? '';
+    const title = `${item.is_encore ? 'Z: ' : ''}${item.music?.title ?? ''}`;
     return item.music?.version ? `${title} (${item.music.version})` : title;
   }
   if (item.type === PlaylistItemType.MODERATION_TEXT) {

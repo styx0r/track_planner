@@ -85,6 +85,7 @@ export interface PlaylistItem {
   performer?: string;
   music_uid?: string;
   metronome_enabled_override?: boolean;
+  is_encore?: boolean;
   music?: PlaylistTrackSummary;
   moderation_text_uid?: string;
   moderation_text?: { uid: string; text: string; author: string; category: string };

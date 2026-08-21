@@ -140,6 +140,25 @@
   background: rgba(239, 68, 68, 0.25);
 }
 
+.nextItemBtn {
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  border-radius: 7px;
+  color: #7dd3fc;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 10px;
+  transition: all 0.15s ease;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.nextItemBtn:hover {
+  background: rgba(56, 189, 248, 0.22);
+  color: #bae6fd;
+}
+
 .changePlaylistBtn {
   margin-top: 4px;
   background: rgba(255,255,255,0.06);

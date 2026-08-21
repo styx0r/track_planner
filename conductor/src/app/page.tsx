@@ -93,12 +93,14 @@ function getItemLabel(
         type: string;
         music?: { title?: string };
         performer?: string;
+        is_encore?: boolean;
         moderation_text?: { author?: string; text?: string };
       }
     | undefined
 ): string {
   if (!item) return '';
-  if (item.type === PlaylistItemType.TRACK) return item.music?.title ?? '';
+  if (item.type === PlaylistItemType.TRACK)
+    return `${item.is_encore ? 'Z: ' : ''}${item.music?.title ?? ''}`;
   if (item.type === PlaylistItemType.MODERATION_TEXT) {
     if (item.moderation_text?.text?.trim().toLowerCase() === 'pause')
       return '☕ Pause';
@@ -346,7 +348,9 @@ export default function ConductorPage() {
       : `${numberPrefix}Moderation: ${
           currentModerationAuthor ?? currentModerationFallback?.performer ?? ''
         }`
-    : `${numberPrefix}${currentTrackTitle ?? fallbackMusic?.title ?? '–'}`;
+    : `${numberPrefix}${currentTrackFallback?.is_encore ? 'Z: ' : ''}${
+        currentTrackTitle ?? fallbackMusic?.title ?? '–'
+      }`;
   const effectiveSheets =
     sheets.length > 0 ? sheets : fallbackMusic?.sheets ?? [];
 

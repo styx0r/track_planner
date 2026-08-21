@@ -138,6 +138,8 @@ export class PlaylistService {
         music_uid: item.type === PlaylistItemType.TRACK ? item.music_uid : undefined,
         metronome_enabled_override:
           item.type === PlaylistItemType.TRACK ? item.metronome_enabled_override : undefined,
+        is_encore:
+          item.type === PlaylistItemType.TRACK ? (item.is_encore || undefined) : undefined,
         moderation_text_uid:
           item.type === PlaylistItemType.MODERATION_TEXT ? item.moderation_text_uid : undefined,
       }));
@@ -195,6 +197,7 @@ export class PlaylistService {
           performer: item.performer || undefined,
           music_uid: item.music_uid,
           metronome_enabled_override: coerceBool(item.metronome_enabled_override),
+          is_encore: coerceBool(item.is_encore),
           music: musicSummaries[item.music_uid],
         };
       } else {

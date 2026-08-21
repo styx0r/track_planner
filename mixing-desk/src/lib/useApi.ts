@@ -40,6 +40,7 @@ const PLAYLIST_ITEMS_FRAGMENT = `
     performer
     music_uid
     metronome_enabled_override
+    is_encore
     music {
       uid
       title
