@@ -1,8 +1,5 @@
 {
   "permissions": {
-    "defaultMode": "bypassPermissions",
-    "allow": ["*"],
-    "deny": [],
-    "ask": []
+    "defaultMode": "bypassPermissions"
   }
 }

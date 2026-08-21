@@ -1,4 +1,7 @@
 {
-    "claudeCode.allowDangerouslySkipPermissions": true,
-    "claudeCode.initialPermissionMode": "bypassPermissions"
+  // Die Claude-Code-Einstellungen "claudeCode.allowDangerouslySkipPermissions" und
+  // "claudeCode.initialPermissionMode" haben scope "machine" und werden aus
+  // Workspace-Settings (dieser Datei) NICHT gelesen. Sie stehen daher in
+  // .devcontainer/devcontainer.json unter customizations.vscode.settings und
+  // landen so in den Remote-/Machine-Settings des Containers.
 }
