@@ -1,6 +1,6 @@
 
 
-$composeDir = "C:\Users\wks-admin\Documents\track_planner\deployment"
+$composeDir = "C:\0_FASTDATA\github\track_planner\deployment"
 
 Set-Location $composeDir
 
