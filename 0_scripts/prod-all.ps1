@@ -24,7 +24,7 @@ do {
 
 Write-Host ""
 Write-Host "Container bereit, Gospelplayer wird gestartet!" -ForegroundColor Black -BackgroundColor Green
-
+cd ..
 # Production START — serves the ALREADY-BUILT apps. Fast: no rebuild on start.
 # After changing code, run build-all.ps1 first; afterwards just run this to (re)start.
 # These are backend RUNTIME variables (MinIO etc.); the frontend URL is already baked in at build time.

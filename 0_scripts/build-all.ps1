@@ -6,5 +6,6 @@ $env:NEXT_PUBLIC_BACKEND_URL = "http://10.99.70.100:3333"
 $env:NEXT_PUBLIC_CONDUCTOR_PIN = "1234"
 $env:NX_SKIP_NX_CACHE = "false"
 
+cd ..
 npm run build:all
 exit $LASTEXITCODE
