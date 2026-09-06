@@ -1,0 +1,23 @@
+# Build context for backend/Dockerfile (context = repo root)
+node_modules
+**/node_modules
+**/dist
+**/.next
+**/out
+**/out-tsc
+.nx
+.git
+.devcontainer
+.vscode
+.cursor
+.claude
+.verdaccio
+data
+icons
+deployment
+**/.env
+*.wav
+*.log
+*.ps1
+*.sh
+.DS_Store

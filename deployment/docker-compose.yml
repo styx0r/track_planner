@@ -1,14 +1,35 @@
+# Infrastructure only: ArangoDB + MinIO.
+#
+# Used by
+#   - .devcontainer/docker-compose.yml (via `include`) for local development
+#   - prod-all.ps1 on the Windows production machine (backend runs natively there)
+#   - docker-compose.backend.yml (via `include`) for a fully containerised
+#     backend, e.g. on a NAS
+#
+# Credentials can be overridden with a `.env` file next to this file
+# (see .env.example); the defaults match backend/.env_template.
 services:
   arangodb:
     image: arangodb:latest
     container_name: arangodb
     restart: always
     environment:
-      - ARANGO_ROOT_PASSWORD=track_planner
+      - ARANGO_ROOT_PASSWORD=${ARANGO_ROOT_PASSWORD:-track_planner}
     ports:
-      - "8529:8529"
+      - "${ARANGO_PORT:-8529}:8529"
     volumes:
       - arangodb_data:/var/lib/arangodb3
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          arangosh --server.endpoint tcp://127.0.0.1:8529
+          --server.username root --server.password "$$ARANGO_ROOT_PASSWORD"
+          --javascript.execute-string 'db._version()' > /dev/null
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
 
   minio:
     image: minio/minio:latest
@@ -16,14 +37,20 @@ services:
     restart: always
     environment:
       # Align with backend/.env_template values
-      - MINIO_ROOT_USER=minioadmin
-      - MINIO_ROOT_PASSWORD=minioadmin
-      - MINIO_REGION_NAME=eu-central-1
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
+      - MINIO_REGION_NAME=${MINIO_REGION:-eu-central-1}
     command: server /data --address ":9000"
     ports:
-      - "9000:9000"
+      - "${MINIO_PORT:-9000}:9000"
     volumes:
       - minio_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:9000/minio/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
 
 volumes:
   arangodb_data:

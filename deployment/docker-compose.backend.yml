@@ -1,0 +1,90 @@
+# Full containerised stack: ArangoDB + MinIO (from docker-compose.yml) plus the
+# NestJS backend. Intended for a headless box such as a NAS.
+#
+#   cd deployment
+#   cp .env.example .env        # set PUBLIC_HOST to the NAS IP/hostname
+#   docker compose -f docker-compose.backend.yml up -d --build
+#
+# The frontends are NOT part of this file. They are static exports that get the
+# backend URL baked in at build time (NEXT_PUBLIC_BACKEND_URL), so build them
+# against http://<PUBLIC_HOST>:3333 and serve them wherever you like.
+include:
+  - docker-compose.yml
+
+services:
+  # One-shot: creates database, app user and collections, then exits.
+  arango-init:
+    image: arangodb:latest
+    container_name: arango-init
+    restart: "no"
+    depends_on:
+      arangodb:
+        condition: service_healthy
+    environment:
+      ARANGO_ROOT_PASSWORD: ${ARANGO_ROOT_PASSWORD:-track_planner}
+      ARANGO_DATABASE: ${ARANGO_DATABASE:-track-planner}
+      ARANGO_USER: ${ARANGO_USER:-track-planner}
+      ARANGO_PASSWORD: ${ARANGO_PASSWORD:-track-planner}
+    volumes:
+      - ./arango-init.js:/init/arango-init.js:ro
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        arangosh --server.endpoint tcp://arangodb:8529
+        --server.username root --server.password "$$ARANGO_ROOT_PASSWORD"
+        --javascript.execute /init/arango-init.js
+
+  backend:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    image: track-planner-backend:latest
+    container_name: track-planner-backend
+    restart: always
+    depends_on:
+      arangodb:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      arango-init:
+        condition: service_completed_successfully
+    ports:
+      - "${BACKEND_PORT:-3333}:3333"
+    environment:
+      PORT: "3333"
+
+      # ArangoDB (container-internal hostname)
+      ARANGO_URL: http://arangodb:8529
+      ARANGO_DATABASE: ${ARANGO_DATABASE:-track-planner}
+      ARANGO_USER: ${ARANGO_USER:-track-planner}
+      ARANGO_PASSWORD: ${ARANGO_PASSWORD:-track-planner}
+
+      # MinIO as seen from the backend container
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: "9000"
+      MINIO_USE_SSL: "false"
+      MINIO_REGION: ${MINIO_REGION:-eu-central-1}
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME:-music-files}
+
+      # MinIO as seen from the browsers/clients. Presigned URLs are signed
+      # against this host, so it MUST be reachable from the client devices.
+      MINIO_PUBLIC_ENDPOINT: ${PUBLIC_HOST:?set PUBLIC_HOST in deployment/.env}
+      MINIO_PUBLIC_PORT: ${MINIO_PORT:-9000}
+      MINIO_PUBLIC_USE_SSL: "false"
+
+      # Optional: LibreHardwareMonitor JSON endpoint for the CPU temperature widget.
+      # CPU_TEMP_URL: http://host.docker.internal:8085/data.json
+
+    # --- Audio output -------------------------------------------------------
+    # The backend plays audio server-side via mpv/ffplay. Without a sound
+    # device in the container the backend logs "No audio player found" and
+    # simulates playback (positions/timers still work, just no sound).
+    # To get real sound on a Linux host with ALSA, uncomment:
+    # devices:
+    #   - /dev/snd:/dev/snd
+    # group_add:
+    #   - audio
+    # If the host's `audio` group id differs from Debian's (29), pass the
+    # numeric gid instead, e.g. `- "29"`.
