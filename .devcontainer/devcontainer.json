@@ -5,7 +5,10 @@
   "workspaceFolder": "/workspaces/track_planner",
   "shutdownAction": "stopCompose",
   "features": {
-    "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {},
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "dockerDashComposeVersion": "v2"
+    }
   },
   "forwardPorts": [
     3000,

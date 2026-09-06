@@ -7,7 +7,11 @@ services:
     volumes:
       - ..:/workspaces/track_planner:cached
       - ${HOME}/.claude:/home/node/.claude:cached
+      # Image/layer store for the docker-in-docker feature; survives rebuilds.
+      - dind_var_lib_docker:/var/lib/docker
     command: sleep infinity
+    # Required by the docker-in-docker devcontainer feature (inner dockerd).
+    privileged: true
     environment:
       BACKEND_URL: http://localhost:3333
       NEXT_PUBLIC_BACKEND_URL: http://localhost:3333
@@ -32,3 +36,6 @@ services:
     depends_on:
       - arangodb
       - minio
+
+volumes:
+  dind_var_lib_docker:
