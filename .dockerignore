@@ -14,7 +14,7 @@ node_modules
 .verdaccio
 data
 icons
-deployment
+deployment/.env
 **/.env
 *.wav
 *.log

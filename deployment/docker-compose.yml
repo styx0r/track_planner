@@ -1,14 +1,29 @@
-# Infrastructure only: ArangoDB + MinIO.
+# Track Planner – complete stack in one file, selectable via Compose profiles.
 #
-# Used by
-#   - .devcontainer/docker-compose.yml (via `include`) for local development
-#   - prod-all.ps1 on the Windows production machine (backend runs natively there)
-#   - docker-compose.backend.yml (via `include`) for a fully containerised
-#     backend, e.g. on a NAS
+#   Always started (no profile):  arangodb, minio, arango-init
+#   Profile "backend":            backend
+#   Profile "frontends":          rehearsal, conductor, moderator, mixing-desk, backoffice
+#   Profile "all":                everything
+#   Each app also has a profile of its own name (e.g. "conductor").
 #
-# Credentials can be overridden with a `.env` file next to this file
-# (see .env.example); the defaults match backend/.env_template.
+# Pick what a machine should run, e.g.
+#   docker compose up -d --build                        # infra only (devcontainer, Windows prod)
+#   docker compose --profile all up -d --build          # everything on one box
+#   docker compose up -d --build backend conductor      # naming services enables their profiles
+#   COMPOSE_PROFILES=all in .env                        # make `up` start everything by default
+#
+# Configuration lives in `.env` next to this file (copy from .env.example).
+# PUBLIC_HOST must be the IP/hostname clients use to reach this machine: it is
+# baked into the frontends and used to sign MinIO download URLs.
+#
+# This file is also `include`d by .devcontainer/docker-compose.yml, where no
+# profile is active, so only ArangoDB/MinIO/init come up there.
+
+x-build-common: &build-common
+  context: ..
+
 services:
+  # ---------------------------------------------------------------- infra --
   arangodb:
     image: arangodb:latest
     container_name: arangodb
@@ -51,6 +66,164 @@ services:
       timeout: 5s
       retries: 12
       start_period: 10s
+
+  # One-shot: creates database, app user and collections, then exits (idempotent).
+  arango-init:
+    image: arangodb:latest
+    container_name: arango-init
+    restart: "no"
+    depends_on:
+      arangodb:
+        condition: service_healthy
+    environment:
+      ARANGO_ROOT_PASSWORD: ${ARANGO_ROOT_PASSWORD:-track_planner}
+      ARANGO_DATABASE: ${ARANGO_DATABASE:-track-planner}
+      ARANGO_USER: ${ARANGO_USER:-track-planner}
+      ARANGO_PASSWORD: ${ARANGO_PASSWORD:-track-planner}
+    volumes:
+      - ./arango-init.js:/init/arango-init.js:ro
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        arangosh --server.endpoint tcp://arangodb:8529
+        --server.username root --server.password "$$ARANGO_ROOT_PASSWORD"
+        --javascript.execute /init/arango-init.js
+
+  # -------------------------------------------------------------- backend --
+  backend:
+    profiles: ["backend", "all"]
+    build:
+      <<: *build-common
+      dockerfile: backend/Dockerfile
+    image: track-planner-backend:latest
+    container_name: track-planner-backend
+    restart: always
+    depends_on:
+      arangodb:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      arango-init:
+        condition: service_completed_successfully
+    ports:
+      - "${BACKEND_PORT:-3333}:3333"
+    environment:
+      PORT: "3333"
+
+      # ArangoDB (container-internal hostname)
+      ARANGO_URL: http://arangodb:8529
+      ARANGO_DATABASE: ${ARANGO_DATABASE:-track-planner}
+      ARANGO_USER: ${ARANGO_USER:-track-planner}
+      ARANGO_PASSWORD: ${ARANGO_PASSWORD:-track-planner}
+
+      # MinIO as seen from the backend container
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: "9000"
+      MINIO_USE_SSL: "false"
+      MINIO_REGION: ${MINIO_REGION:-eu-central-1}
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME:-music-files}
+
+      # MinIO as seen from the browsers/clients. Presigned URLs are signed
+      # against this host, so it MUST be reachable from the client devices.
+      MINIO_PUBLIC_ENDPOINT: ${PUBLIC_HOST:-localhost}
+      MINIO_PUBLIC_PORT: ${MINIO_PORT:-9000}
+      MINIO_PUBLIC_USE_SSL: "false"
+
+      # Optional: LibreHardwareMonitor JSON endpoint for the CPU temperature widget.
+      # CPU_TEMP_URL: http://host.docker.internal:8085/data.json
+
+    # --- Audio output -------------------------------------------------------
+    # The backend plays audio server-side via mpv/ffplay. Without a sound
+    # device in the container the backend logs "No audio player found" and
+    # simulates playback (positions/timers still work, just no sound).
+    # To get real sound on a Linux host with ALSA, uncomment:
+    # devices:
+    #   - /dev/snd:/dev/snd
+    # group_add:
+    #   - audio
+    # If the host's `audio` group id differs from Debian's (29), pass the
+    # numeric gid instead, e.g. `- "29"`.
+
+  # ------------------------------------------------- static frontends ------
+  # NEXT_PUBLIC_BACKEND_URL is baked in at build time. Change PUBLIC_HOST or
+  # BACKEND_PORT -> rebuild these images (`up -d --build`).
+  rehearsal:
+    profiles: ["rehearsal", "frontends", "all"]
+    build:
+      <<: *build-common
+      dockerfile: deployment/docker/frontend.Dockerfile
+      args:
+        APP: rehearsal
+        NEXT_PUBLIC_BACKEND_URL: http://${PUBLIC_HOST:-localhost}:${BACKEND_PORT:-3333}
+    image: track-planner-rehearsal:latest
+    container_name: track-planner-rehearsal
+    restart: always
+    ports:
+      - "${REHEARSAL_PORT:-3001}:80"
+
+  conductor:
+    profiles: ["conductor", "frontends", "all"]
+    build:
+      <<: *build-common
+      dockerfile: deployment/docker/frontend.Dockerfile
+      args:
+        APP: conductor
+        NEXT_PUBLIC_BACKEND_URL: http://${PUBLIC_HOST:-localhost}:${BACKEND_PORT:-3333}
+        NEXT_PUBLIC_CONDUCTOR_PIN: ${CONDUCTOR_PIN:-1234}
+    image: track-planner-conductor:latest
+    container_name: track-planner-conductor
+    restart: always
+    ports:
+      - "${CONDUCTOR_PORT:-3002}:80"
+
+  moderator:
+    profiles: ["moderator", "frontends", "all"]
+    build:
+      <<: *build-common
+      dockerfile: deployment/docker/frontend.Dockerfile
+      args:
+        APP: moderator
+        NEXT_PUBLIC_BACKEND_URL: http://${PUBLIC_HOST:-localhost}:${BACKEND_PORT:-3333}
+    image: track-planner-moderator:latest
+    container_name: track-planner-moderator
+    restart: always
+    ports:
+      - "${MODERATOR_PORT:-3003}:80"
+
+  mixing-desk:
+    profiles: ["mixing-desk", "frontends", "all"]
+    build:
+      <<: *build-common
+      dockerfile: deployment/docker/frontend.Dockerfile
+      args:
+        APP: mixing-desk
+        NEXT_PUBLIC_BACKEND_URL: http://${PUBLIC_HOST:-localhost}:${BACKEND_PORT:-3333}
+    image: track-planner-mixing-desk:latest
+    container_name: track-planner-mixing-desk
+    restart: always
+    ports:
+      - "${MIXING_DESK_PORT:-3004}:80"
+
+  # ----------------------------------------------------------- backoffice --
+  # Next.js server; proxies /api/* to the backend at runtime, so it needs the
+  # backend's URL as seen from inside this container.
+  backoffice:
+    profiles: ["backoffice", "frontends", "all"]
+    build:
+      <<: *build-common
+      dockerfile: deployment/docker/backoffice.Dockerfile
+    image: track-planner-backoffice:latest
+    container_name: track-planner-backoffice
+    restart: always
+    ports:
+      - "${BACKOFFICE_PORT:-3000}:3000"
+    environment:
+      # Default assumes the backend runs in this compose project. If the backend
+      # runs elsewhere (e.g. natively on the host), set BACKOFFICE_BACKEND_URL
+      # in .env, e.g. http://host.docker.internal:3333
+      BACKEND_URL: ${BACKOFFICE_BACKEND_URL:-http://backend:3333}
 
 volumes:
   arangodb_data:
