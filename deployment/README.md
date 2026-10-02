@@ -86,8 +86,12 @@ docker compose up -d --build            # rebuilds changed images, restarts only
 - **`PUBLIC_HOST` is baked into the frontends.** The static apps get
   `NEXT_PUBLIC_BACKEND_URL=http://<PUBLIC_HOST>:<BACKEND_PORT>` at build time.
   Change the host or port → `docker compose up -d --build` to rebuild them.
-- **MinIO links are signed for `PUBLIC_HOST`.** If clients cannot reach
-  `PUBLIC_HOST:9000`, audio and sheet downloads fail with a signature error.
+- **Storage links are signed for `PUBLIC_HOST`.** If clients cannot reach
+  `PUBLIC_HOST:9000`, audio and sheet downloads (e.g. Play in the backoffice)
+  fail. Override with `STORAGE_PUBLIC_HOST` / `STORAGE_PUBLIC_PORT` /
+  `STORAGE_PUBLIC_USE_SSL`, then `docker compose up -d backend`.
+- **`BACKEND_PUBLIC_URL`** overrides the backend URL baked into the static
+  frontends (default `http://<PUBLIC_HOST>:<BACKEND_PORT>`); rebuild after a change.
 - **Sound.** The backend plays audio itself via `mpv`/`ffplay`. In a container
   there is normally no sound device, so playback is simulated (timers and
   positions still broadcast, nothing audible). See the commented

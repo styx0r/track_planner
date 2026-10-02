@@ -131,9 +131,11 @@ services:
 
       # MinIO as seen from the browsers/clients. Presigned URLs are signed
       # against this host, so it MUST be reachable from the client devices.
-      MINIO_PUBLIC_ENDPOINT: ${PUBLIC_HOST:-localhost}
-      MINIO_PUBLIC_PORT: ${MINIO_PORT:-9000}
-      MINIO_PUBLIC_USE_SSL: "false"
+      # Defaults to PUBLIC_HOST/MINIO_PORT; override with STORAGE_PUBLIC_* in .env
+      # when storage is reached under a different address (proxy, DNS name, TLS).
+      MINIO_PUBLIC_ENDPOINT: ${STORAGE_PUBLIC_HOST:-${PUBLIC_HOST:-localhost}}
+      MINIO_PUBLIC_PORT: ${STORAGE_PUBLIC_PORT:-${MINIO_PORT:-9000}}
+      MINIO_PUBLIC_USE_SSL: ${STORAGE_PUBLIC_USE_SSL:-false}
 
       # Optional: LibreHardwareMonitor JSON endpoint for the CPU temperature widget.
       # CPU_TEMP_URL: http://host.docker.internal:8085/data.json
@@ -151,8 +153,9 @@ services:
     # numeric gid instead, e.g. `- "29"`.
 
   # ------------------------------------------------- static frontends ------
-  # NEXT_PUBLIC_BACKEND_URL is baked in at build time. Change PUBLIC_HOST or
-  # BACKEND_PORT -> rebuild these images (`up -d --build`).
+  # NEXT_PUBLIC_BACKEND_URL is baked in at build time. Defaults to
+  # http://PUBLIC_HOST:BACKEND_PORT; override with BACKEND_PUBLIC_URL in .env.
+  # Any change -> rebuild these images (`up -d --build`).
   rehearsal:
     profiles: ["rehearsal", "frontends", "all"]
     build:
@@ -160,7 +163,7 @@ services:
       dockerfile: deployment/docker/frontend.Dockerfile
       args:
         APP: rehearsal
-        NEXT_PUBLIC_BACKEND_URL: http://${PUBLIC_HOST:-localhost}:${BACKEND_PORT:-3333}
+        NEXT_PUBLIC_BACKEND_URL: ${BACKEND_PUBLIC_URL:-http://${PUBLIC_HOST:-localhost}:${BACKEND_PORT:-3333}}
     image: track-planner-rehearsal:latest
     container_name: track-planner-rehearsal
     restart: always
@@ -174,7 +177,7 @@ services:
       dockerfile: deployment/docker/frontend.Dockerfile
       args:
         APP: conductor
-        NEXT_PUBLIC_BACKEND_URL: http://${PUBLIC_HOST:-localhost}:${BACKEND_PORT:-3333}
+        NEXT_PUBLIC_BACKEND_URL: ${BACKEND_PUBLIC_URL:-http://${PUBLIC_HOST:-localhost}:${BACKEND_PORT:-3333}}
         NEXT_PUBLIC_CONDUCTOR_PIN: ${CONDUCTOR_PIN:-1234}
     image: track-planner-conductor:latest
     container_name: track-planner-conductor
@@ -189,7 +192,7 @@ services:
       dockerfile: deployment/docker/frontend.Dockerfile
       args:
         APP: moderator
-        NEXT_PUBLIC_BACKEND_URL: http://${PUBLIC_HOST:-localhost}:${BACKEND_PORT:-3333}
+        NEXT_PUBLIC_BACKEND_URL: ${BACKEND_PUBLIC_URL:-http://${PUBLIC_HOST:-localhost}:${BACKEND_PORT:-3333}}
     image: track-planner-moderator:latest
     container_name: track-planner-moderator
     restart: always
@@ -203,7 +206,7 @@ services:
       dockerfile: deployment/docker/frontend.Dockerfile
       args:
         APP: mixing-desk
-        NEXT_PUBLIC_BACKEND_URL: http://${PUBLIC_HOST:-localhost}:${BACKEND_PORT:-3333}
+        NEXT_PUBLIC_BACKEND_URL: ${BACKEND_PUBLIC_URL:-http://${PUBLIC_HOST:-localhost}:${BACKEND_PORT:-3333}}
     image: track-planner-mixing-desk:latest
     container_name: track-planner-mixing-desk
     restart: always
