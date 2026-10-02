@@ -6,7 +6,7 @@ services a machine should run via Compose profiles.
 | Service | Profile(s) | Port | Notes |
 |---------|------------|------|-------|
 | `arangodb` | always | 8529 | Database. Named volume `arangodb_data`. |
-| `minio` | always | 9000 | Audio / sheet-music storage. Named volume `minio_data`. |
+| `minio` | always | 9000 | Audio / sheet-music storage (RustFS, S3-compatible). Named volume `rustfs_data`. |
 | `arango-init` | always | – | One-shot: creates DB, user, collections. Idempotent. |
 | `backend` | `backend`, `all` | 3333 | NestJS. `backend/Dockerfile`. |
 | `rehearsal` | `rehearsal`, `frontends`, `all` | 3001 | Static export behind nginx. |

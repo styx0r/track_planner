@@ -46,22 +46,26 @@ services:
       retries: 12
       start_period: 20s
 
+  # S3-compatible object storage. Runs RustFS since MinIO pulled its images
+  # from Docker Hub (2026-09). The service keeps the name "minio" so the
+  # hostname (minio:9000) and the backend's MINIO_* variables stay unchanged.
   minio:
-    image: minio/minio:latest
-    container_name: minio
+    image: rustfs/rustfs:latest
+    container_name: rustfs
     restart: always
     environment:
       # Align with backend/.env_template values
-      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
-      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
-      - MINIO_REGION_NAME=${MINIO_REGION:-eu-central-1}
-    command: server /data --address ":9000"
+      - RUSTFS_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin}
+      - RUSTFS_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin}
+      - RUSTFS_ADDRESS=:9000
+      - RUSTFS_CONSOLE_ENABLE=false
     ports:
       - "${MINIO_PORT:-9000}:9000"
     volumes:
-      - minio_data:/data
+      # Fresh volume: RustFS cannot read MinIO's on-disk format (minio_data).
+      - rustfs_data:/data
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:9000/minio/health/live || exit 1"]
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:9000/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -227,4 +231,4 @@ services:
 
 volumes:
   arangodb_data:
-  minio_data:
+  rustfs_data:
