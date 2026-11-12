@@ -572,6 +572,7 @@ export default function MusicManagement() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadSheets, setUploadSheets] = useState<LocalSheet[]>([]);
   const [editAudioFile, setEditAudioFile] = useState<File | null>(null);
+  const [removeEditAudio, setRemoveEditAudio] = useState(false);
 
   const closeEditDialog = useCallback(() => {
     setEditDialogOpen(false);
@@ -580,6 +581,7 @@ export default function MusicManagement() {
     setEditLyrics('');
     setEditSheets([]);
     setEditAudioFile(null);
+    setRemoveEditAudio(false);
   }, []);
 
   // Load music data
@@ -939,6 +941,8 @@ export default function MusicManagement() {
           method: 'PATCH',
           body: audioFormData
         });
+      } else if (removeEditAudio) {
+        await fetch(`/api/music/${musicUid}/audio`, { method: 'DELETE' });
       }
 
       setSnackbar({ open: true, message: 'Music updated successfully!', severity: 'success' });
@@ -1508,8 +1512,27 @@ export default function MusicManagement() {
                     Audio file:
                   </Typography>
                   <Typography variant="body2" noWrap sx={{ flexGrow: 1, color: editAudioFile ? 'text.primary' : 'text.disabled' }}>
-                    {editAudioFile ? editAudioFile.name : (selectedMusic?.file_name || 'No audio file')}
+                    {editAudioFile
+                      ? editAudioFile.name
+                      : removeEditAudio
+                        ? 'Audio file will be removed'
+                        : (selectedMusic?.file_name || 'No audio file')}
                   </Typography>
+                  {(editAudioFile || (selectedMusic?.file_name && !removeEditAudio)) && (
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      color="error"
+                      startIcon={<Delete />}
+                      sx={{ flexShrink: 0 }}
+                      onClick={() => {
+                        setEditAudioFile(null);
+                        setRemoveEditAudio(true);
+                      }}
+                    >
+                      Remove
+                    </Button>
+                  )}
                   <Button
                     component="label"
                     size="small"
@@ -1525,6 +1548,7 @@ export default function MusicManagement() {
                       onChange={(e) => {
                         const f = e.target.files?.[0] || null;
                         setEditAudioFile(f);
+                        if (f) setRemoveEditAudio(false);
                         if (f) {
                           parseBlob(f).then((meta) => {
                             const dur = meta.format.duration;

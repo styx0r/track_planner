@@ -590,6 +590,44 @@ export class MusicService {
     }
   }
 
+  async removeAudioFile(uid: string): Promise<Music> {
+    try {
+      const db = this.databaseService.getDatabase();
+      const collection = db.collection(this.collectionName);
+
+      const cursor = await db.query(
+        'FOR doc IN @@collection FILTER doc.uid == @uid RETURN doc',
+        { '@collection': this.collectionName, uid }
+      );
+      const documents = await cursor.all();
+
+      if (documents.length === 0) {
+        throw new NotFoundException(`Music with UID ${uid} not found`);
+      }
+
+      const doc = documents[0];
+
+      if (doc.file_name) {
+        await this.minioService.deleteFile(doc.file_name).catch(() => {});
+      }
+
+      // Same "no audio" state as a song created without a file
+      await collection.update(doc._key, {
+        file_name: '',
+        file_url: '',
+        waveform: [],
+        update_timestamp: new Date(),
+      });
+
+      const updatedDoc = await collection.document(doc._key);
+      this.logger.log(`Audio removed from music: ${uid}`);
+      return this.docToMusic(updatedDoc);
+    } catch (error) {
+      this.logger.error(`Error removing audio: ${error.message}`);
+      throw error;
+    }
+  }
+
   async duplicateMusic(uid: string): Promise<Music> {
     try {
       const db = this.databaseService.getDatabase();

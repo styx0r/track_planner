@@ -56,6 +56,11 @@ export class MusicController {
     return this.musicService.replaceAudioFile(uid, file);
   }
 
+  @Delete(':uid/audio')
+  async removeAudio(@Param('uid') uid: string) {
+    return this.musicService.removeAudioFile(uid);
+  }
+
   @Post(':uid/duplicate')
   async duplicate(@Param('uid') uid: string) {
     return this.musicService.duplicateMusic(uid);
