@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Client as MinioClient } from 'minio';
 import { v4 as uuidv4 } from 'uuid';
@@ -33,9 +33,10 @@ const THUMBNAIL_MAX_WIDTH = 200;
 const THUMBNAIL_MAX_HEIGHT = 280;
 // Scale factor for PDF rendering: 2x = 144 DPI (decent quality for sheet music)
 const PDF_RENDER_SCALE = 2;
+const BUCKET_RETRY_DELAY_MS = 3000;
 
 @Injectable()
-export class MinioService {
+export class MinioService implements OnModuleInit {
   private readonly logger = new Logger(MinioService.name);
   private minioClient: MinioClient;
   private publicMinioClient: MinioClient;
@@ -91,18 +92,25 @@ export class MinioService {
       'MINIO_BUCKET_NAME',
       'music-files'
     );
-    void this.ensureBucketExists();
   }
 
-  private async ensureBucketExists(): Promise<void> {
-    try {
-      const exists = await this.minioClient.bucketExists(this.bucketName);
-      if (!exists) {
-        await this.minioClient.makeBucket(this.bucketName, this.configService.get<string>('MINIO_REGION', 'eu-central-1'));
-        this.logger.log(`Created bucket: ${this.bucketName}`);
+  // Nest awaits this before the app starts listening, so the backend only
+  // comes up once the bucket exists. Retries until storage is reachable.
+  async onModuleInit(): Promise<void> {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        const exists = await this.minioClient.bucketExists(this.bucketName);
+        if (!exists) {
+          await this.minioClient.makeBucket(this.bucketName, this.configService.get<string>('MINIO_REGION', 'eu-central-1'));
+          this.logger.log(`Created bucket: ${this.bucketName}`);
+        }
+        return;
+      } catch (error: any) {
+        this.logger.warn(
+          `Storage not ready (attempt ${attempt}), retrying in ${BUCKET_RETRY_DELAY_MS / 1000}s: ${error?.message || error?.code || error}`
+        );
+        await new Promise((resolve) => setTimeout(resolve, BUCKET_RETRY_DELAY_MS));
       }
-    } catch (error: any) {
-      this.logger.error(`Error ensuring bucket exists: ${error?.message}`);
     }
   }
 
