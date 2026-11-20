@@ -497,6 +497,9 @@ export class PlaybackService {
         case 'mpv':
           args = ['--no-video', '--no-terminal'];
           if (startPositionMs > 0) args.push(`--start=${startSec}`);
+          // Extra mpv options from env, whitespace-separated,
+          // e.g. MPV_EXTRA_ARGS="--audio-samplerate=48000 --audio-device=alsa/hw:1"
+          args.push(...(process.env.MPV_EXTRA_ARGS ?? '').split(/\s+/).filter(Boolean));
           args.push(filePath);
           break;
         case 'ffplay':

@@ -137,6 +137,11 @@ services:
       MINIO_PUBLIC_PORT: ${STORAGE_PUBLIC_PORT:-${MINIO_PORT:-9000}}
       MINIO_PUBLIC_USE_SSL: ${STORAGE_PUBLIC_USE_SSL:-false}
 
+      # Extra mpv options, e.g. MPV_EXTRA_ARGS=--audio-samplerate=48000
+      MPV_EXTRA_ARGS: ${MPV_EXTRA_ARGS:-}
+      # Max upload size per file in MB (WAV needs ~10-17 MB per minute)
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-500}
+
       # Optional: LibreHardwareMonitor JSON endpoint for the CPU temperature widget.
       # CPU_TEMP_URL: http://host.docker.internal:8085/data.json
 

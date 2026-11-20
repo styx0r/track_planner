@@ -937,10 +937,14 @@ export default function MusicManagement() {
       if (editAudioFile) {
         const audioFormData = new FormData();
         audioFormData.append('file', editAudioFile);
-        await fetch(`/api/music/${musicUid}/audio`, {
+        const audioResponse = await fetch(`/api/music/${musicUid}/audio`, {
           method: 'PATCH',
           body: audioFormData
         });
+        if (!audioResponse.ok) {
+          const err = await audioResponse.json().catch(() => null);
+          throw new Error(err?.message || `Audio upload failed (${audioResponse.status})`);
+        }
       } else if (removeEditAudio) {
         await fetch(`/api/music/${musicUid}/audio`, { method: 'DELETE' });
       }

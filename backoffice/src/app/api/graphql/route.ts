@@ -51,6 +51,12 @@ export async function POST(request: NextRequest) {
       });
 
       const data = await response.json();
+      if (!response.ok) {
+        return NextResponse.json(
+          { errors: [{ message: data?.message || `Upload failed (${response.status})` }] },
+          { status: response.status }
+        );
+      }
       // Wrap in GraphQL response format
       return NextResponse.json({ data: { createMusic: data } });
     }
