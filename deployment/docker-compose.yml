@@ -150,8 +150,8 @@ services:
     # device in the container the backend logs "No audio player found" and
     # simulates playback (positions/timers still work, just no sound).
     # To get real sound on a Linux host with ALSA, uncomment:
-    # devices:
-    #   - /dev/snd:/dev/snd
+    devices:
+      - "/dev/snd:/dev/snd"
     # group_add:
     #   - audio
     # If the host's `audio` group id differs from Debian's (29), pass the
