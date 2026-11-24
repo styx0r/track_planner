@@ -15,8 +15,10 @@ async function handler(
     const contentType = request.headers.get('content-type') || '';
 
     if (request.method !== 'GET') {
-      if (contentType.includes('multipart/form-data')) {
-        init.body = await request.formData();
+      if (contentType.includes('application/octet-stream')) {
+        // Snapshot upload chunk (a few MB) — forward the raw bytes.
+        init.headers = { 'Content-Type': 'application/octet-stream' };
+        init.body = await request.arrayBuffer();
       } else {
         const body = await request.text();
         if (body) {

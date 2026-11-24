@@ -10,7 +10,8 @@ import {
   CardContent,
   CardActions,
   Button,
-  Grid
+  Grid,
+  LinearProgress
 } from '@mui/material';
 import { MusicNote, Dashboard, QueueMusic, Comment, Download, UploadFile, Backup } from '@mui/icons-material';
 import Link from 'next/link';
@@ -31,6 +32,28 @@ interface SnapshotPreview {
     exportedAt: string;
     version: number;
   };
+}
+
+// Snapshots are uploaded in chunks so no request size/timeout limit applies.
+const SNAPSHOT_CHUNK_BYTES = 32 * 1024 * 1024;
+
+async function postSnapshotApi<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`/api/snapshot/${path}`, { method: 'POST', ...init });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.message || data.error || `Snapshot request failed (${response.status})`);
+  return data as T;
+}
+
+async function uploadSnapshotFile(file: File, onProgress: (fraction: number) => void): Promise<string> {
+  const { uploadId } = await postSnapshotApi<{ uploadId: string }>('upload');
+  for (let offset = 0; offset < file.size; offset += SNAPSHOT_CHUNK_BYTES) {
+    await postSnapshotApi(`upload/${uploadId}/chunk?offset=${offset}`, {
+      headers: { 'Content-Type': 'application/octet-stream' },
+      body: file.slice(offset, offset + SNAPSHOT_CHUNK_BYTES),
+    });
+    onProgress(Math.min(offset + SNAPSHOT_CHUNK_BYTES, file.size) / file.size);
+  }
+  return uploadId;
 }
 
 function formatBytes(bytes: number) {
@@ -55,7 +78,8 @@ function SnapshotCountsView({ counts }: { counts: SnapshotCounts }) {
 
 export default function BackofficeHome() {
   const [snapshotStats, setSnapshotStats] = useState<SnapshotCounts | null>(null);
-  const [snapshotFile, setSnapshotFile] = useState<File | null>(null);
+  const [snapshotUploadId, setSnapshotUploadId] = useState<string | null>(null);
+  const [snapshotUploadProgress, setSnapshotUploadProgress] = useState<number | null>(null);
   const [snapshotPreview, setSnapshotPreview] = useState<SnapshotPreview | null>(null);
   const [snapshotError, setSnapshotError] = useState<string | null>(null);
   const [snapshotMessage, setSnapshotMessage] = useState<string | null>(null);
@@ -108,43 +132,33 @@ export default function BackofficeHome() {
   }
 
   async function previewSnapshot(file: File) {
-    setSnapshotFile(file);
+    setSnapshotUploadId(null);
     setSnapshotPreview(null);
     setSnapshotError(null);
     setSnapshotMessage(null);
+    setSnapshotUploadProgress(0);
 
     try {
-      const formData = new FormData();
-      formData.append('snapshot', file);
-      const response = await fetch('/api/snapshot/preview', {
-        method: 'POST',
-        body: formData,
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || data.error || 'Snapshot preview failed');
-      setSnapshotPreview(data);
+      const uploadId = await uploadSnapshotFile(file, setSnapshotUploadProgress);
+      setSnapshotPreview(await postSnapshotApi<SnapshotPreview>(`upload/${uploadId}/preview`));
+      setSnapshotUploadId(uploadId);
     } catch (error) {
       setSnapshotError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setSnapshotUploadProgress(null);
     }
   }
 
   async function importSnapshot() {
-    if (!snapshotFile || !snapshotPreview) return;
+    if (!snapshotUploadId || !snapshotPreview) return;
     setImportingSnapshot(true);
     setSnapshotError(null);
     setSnapshotMessage(null);
 
     try {
-      const formData = new FormData();
-      formData.append('snapshot', snapshotFile);
-      const response = await fetch('/api/snapshot/import?confirm=REPLACE_ALL_DATA', {
-        method: 'POST',
-        body: formData,
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || data.error || 'Snapshot import failed');
+      await postSnapshotApi(`import?uploadId=${encodeURIComponent(snapshotUploadId)}&confirm=REPLACE_ALL_DATA`);
       setSnapshotMessage('Snapshot importiert. Die bestehenden Daten wurden ersetzt.');
-      setSnapshotFile(null);
+      setSnapshotUploadId(null);
       setSnapshotPreview(null);
       await loadSnapshotStats();
     } catch (error) {
@@ -273,6 +287,20 @@ export default function BackofficeHome() {
               {snapshotError && <Alert severity="error" sx={{ mb: 2 }}>{snapshotError}</Alert>}
               {snapshotMessage && <Alert severity="success" sx={{ mb: 2 }}>{snapshotMessage}</Alert>}
 
+              {snapshotUploadProgress !== null && (
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="body2" sx={{ mb: 0.5 }}>
+                    {snapshotUploadProgress < 1
+                      ? `Snapshot wird hochgeladen… ${Math.floor(snapshotUploadProgress * 100)} %`
+                      : 'Snapshot wird geprüft…'}
+                  </Typography>
+                  <LinearProgress
+                    variant={snapshotUploadProgress < 1 ? 'determinate' : 'indeterminate'}
+                    value={snapshotUploadProgress * 100}
+                  />
+                </Box>
+              )}
+
               {snapshotPreview && (
                 <Alert severity="warning" sx={{ mb: 2 }}>
                   <Typography variant="subtitle2" sx={{ mb: 1 }}>
@@ -301,6 +329,7 @@ export default function BackofficeHome() {
                 variant="outlined"
                 component="label"
                 startIcon={<UploadFile />}
+                disabled={snapshotUploadProgress !== null || importingSnapshot}
               >
                 Snapshot auswählen
                 <input
@@ -318,7 +347,7 @@ export default function BackofficeHome() {
                 variant="contained"
                 color="error"
                 onClick={importSnapshot}
-                disabled={!snapshotPreview || importingSnapshot}
+                disabled={!snapshotUploadId || !snapshotPreview || importingSnapshot}
               >
                 {importingSnapshot ? 'Importiere...' : 'Importieren und alles ersetzen'}
               </Button>

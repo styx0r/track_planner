@@ -1,5 +1,10 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { Response } from 'express';
+import { BadRequestException, Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { Request, Response } from 'express';
+import { createWriteStream } from 'fs';
+import * as fs from 'fs/promises';
+import * as os from 'os';
+import * as path from 'path';
+import { pipeline } from 'stream/promises';
 import * as unzipper from 'unzipper';
 import { v4 as uuidv4 } from 'uuid';
 import { DatabaseService } from '../database.service';
@@ -7,6 +12,9 @@ import { MinioObjectInfo, MinioService } from '../music/minio.service';
 
 const SNAPSHOT_VERSION = 1;
 const IMPORT_CONFIRMATION = 'REPLACE_ALL_DATA';
+// Snapshots are uploaded in chunks to a temp file instead of one big request:
+// no request size/timeout limit applies and nothing is held in memory.
+const UPLOAD_DIR = path.join(os.tmpdir(), 'track-planner-snapshot-upload');
 const COLLECTIONS = [
   'music',
   'playlists',
@@ -42,17 +50,44 @@ export interface SnapshotPreview {
 interface ParsedSnapshot {
   manifest: SnapshotManifest;
   data: SnapshotData;
-  files: Array<{ name: string; buffer: Buffer }>;
+  files: Array<{ name: string; entry: unzipper.File }>;
 }
 
 @Injectable()
-export class SnapshotService {
+export class SnapshotService implements OnModuleInit {
   private readonly logger = new Logger(SnapshotService.name);
+  // Only one pending upload at a time — starting a new one discards the old file.
+  private pendingUpload: { id: string; filePath: string } | null = null;
 
   constructor(
     private readonly databaseService: DatabaseService,
     private readonly minioService: MinioService,
   ) {}
+
+  async onModuleInit(): Promise<void> {
+    // Remove leftovers from uploads that were never imported (e.g. after a restart).
+    await fs.rm(UPLOAD_DIR, { recursive: true, force: true });
+  }
+
+  async startUpload(): Promise<{ uploadId: string }> {
+    await this.discardPendingUpload();
+    await fs.mkdir(UPLOAD_DIR, { recursive: true });
+    const id = uuidv4();
+    const filePath = path.join(UPLOAD_DIR, `${id}.zip`);
+    await fs.writeFile(filePath, '');
+    this.pendingUpload = { id, filePath };
+    return { uploadId: id };
+  }
+
+  async appendUploadChunk(uploadId: string, offset: number, chunk: Request): Promise<{ received: number }> {
+    const filePath = this.getPendingUploadPath(uploadId);
+    const { size } = await fs.stat(filePath);
+    if (offset !== size) {
+      throw new BadRequestException(`Unexpected chunk offset ${offset}, expected ${size}`);
+    }
+    await pipeline(chunk, createWriteStream(filePath, { flags: 'a' }));
+    return { received: (await fs.stat(filePath)).size };
+  }
 
   async getStats(): Promise<SnapshotCounts> {
     const [songs, playlists, moderationTexts, moderationCategories, minioFiles] = await Promise.all([
@@ -106,21 +141,37 @@ export class SnapshotService {
     await archive.finalize();
   }
 
-  async previewSnapshot(snapshotBuffer: Buffer): Promise<SnapshotPreview> {
-    const parsed = await this.parseSnapshot(snapshotBuffer, false);
-    return {
-      manifest: parsed.manifest,
-      counts: this.countSnapshotData(parsed.data, parsed.manifest.files),
-      zipBytes: snapshotBuffer.length,
-    };
+  async previewSnapshot(uploadId: string): Promise<SnapshotPreview> {
+    const filePath = this.getPendingUploadPath(uploadId);
+    try {
+      const parsed = await this.parseSnapshot(filePath, false);
+      return {
+        manifest: parsed.manifest,
+        counts: this.countSnapshotData(parsed.data, parsed.manifest.files),
+        zipBytes: (await fs.stat(filePath)).size,
+      };
+    } catch (error) {
+      // Invalid ZIP — no point keeping it around.
+      await this.discardPendingUpload();
+      throw error;
+    }
   }
 
-  async importSnapshot(snapshotBuffer: Buffer, confirmation?: string): Promise<SnapshotPreview> {
+  async importSnapshot(uploadId: string, confirmation?: string): Promise<SnapshotPreview> {
     if (confirmation !== IMPORT_CONFIRMATION) {
       throw new BadRequestException('Import confirmation is required');
     }
 
-    const parsed = await this.parseSnapshot(snapshotBuffer, true);
+    const filePath = this.getPendingUploadPath(uploadId);
+    try {
+      return await this.importSnapshotFile(filePath);
+    } finally {
+      await this.discardPendingUpload();
+    }
+  }
+
+  private async importSnapshotFile(filePath: string): Promise<SnapshotPreview> {
+    const parsed = await this.parseSnapshot(filePath, true);
     await this.replaceDatabaseData(parsed.data);
     await this.replaceMinioFiles(parsed.files);
 
@@ -141,10 +192,24 @@ export class SnapshotService {
       manifest: parsed.manifest,
       counts: this.countSnapshotData(parsed.data, parsed.files.map((file) => ({
         name: file.name,
-        size: file.buffer.length,
+        size: file.entry.uncompressedSize,
       }))),
-      zipBytes: snapshotBuffer.length,
+      zipBytes: (await fs.stat(filePath)).size,
     };
+  }
+
+  private getPendingUploadPath(uploadId: string): string {
+    if (!this.pendingUpload || this.pendingUpload.id !== uploadId) {
+      throw new NotFoundException('Snapshot upload not found — please upload the file again');
+    }
+    return this.pendingUpload.filePath;
+  }
+
+  private async discardPendingUpload(): Promise<void> {
+    if (!this.pendingUpload) return;
+    const { filePath } = this.pendingUpload;
+    this.pendingUpload = null;
+    await fs.rm(filePath, { force: true });
   }
 
   private async countCollection(collectionName: SnapshotCollection): Promise<number> {
@@ -187,8 +252,13 @@ export class SnapshotService {
     };
   }
 
-  private async parseSnapshot(buffer: Buffer, includeFiles: boolean): Promise<ParsedSnapshot> {
-    const directory = await unzipper.Open.buffer(buffer);
+  private async parseSnapshot(filePath: string, includeFiles: boolean): Promise<ParsedSnapshot> {
+    let directory: unzipper.CentralDirectory;
+    try {
+      directory = await unzipper.Open.file(filePath);
+    } catch {
+      throw new BadRequestException('Snapshot is not a valid ZIP file');
+    }
     const manifest = await this.readJsonEntry<SnapshotManifest>(directory, 'manifest.json');
 
     if (manifest.version !== SNAPSHOT_VERSION) {
@@ -204,18 +274,17 @@ export class SnapshotService {
       data[collection] = docs as Record<string, unknown>[];
     }
 
+    // Only validate paths here — contents are streamed later during import.
     const files = includeFiles
-      ? await Promise.all(
-          directory.files
-            .filter((entry) => entry.type === 'File' && entry.path.startsWith('files/'))
-            .map(async (entry) => {
-              const name = entry.path.slice('files/'.length);
-              if (!name || name.startsWith('/') || name.includes('..')) {
-                throw new BadRequestException(`Invalid snapshot file path: ${entry.path}`);
-              }
-              return { name, buffer: await entry.buffer() };
-            }),
-        )
+      ? directory.files
+          .filter((entry) => entry.type === 'File' && entry.path.startsWith('files/'))
+          .map((entry) => {
+            const name = entry.path.slice('files/'.length);
+            if (!name || name.startsWith('/') || name.includes('..')) {
+              throw new BadRequestException(`Invalid snapshot file path: ${entry.path}`);
+            }
+            return { name, entry };
+          })
       : [];
 
     return { manifest, data, files };
@@ -300,10 +369,10 @@ export class SnapshotService {
     }
   }
 
-  private async replaceMinioFiles(files: Array<{ name: string; buffer: Buffer }>): Promise<void> {
+  private async replaceMinioFiles(files: Array<{ name: string; entry: unzipper.File }>): Promise<void> {
     await this.minioService.clearBucket();
     for (const file of files) {
-      await this.minioService.putObject(file.name, file.buffer);
+      await this.minioService.putObject(file.name, file.entry.stream(), file.entry.uncompressedSize);
     }
   }
 }

@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Client as MinioClient } from 'minio';
 import { v4 as uuidv4 } from 'uuid';
 import sharp from 'sharp';
+import { once } from 'events';
 import * as path from 'path';
 import { Readable } from 'stream';
 
@@ -227,8 +228,12 @@ export class MinioService implements OnModuleInit {
     return this.minioClient.getObject(this.bucketName, objectName);
   }
 
-  async putObject(objectName: string, data: Buffer): Promise<void> {
-    await this.minioClient.putObject(this.bucketName, objectName, data, data.length);
+  async putObject(objectName: string, data: Readable, size: number): Promise<void> {
+    // minio-js reads the whole stream into memory when nothing is buffered yet
+    // (readableLength === 0). Wait for the first chunk so large files take the
+    // streaming multipart path instead (GB-sized snapshot imports).
+    if (size > 0) await once(data, 'readable');
+    await this.minioClient.putObject(this.bucketName, objectName, data, size);
   }
 
   async clearBucket(): Promise<void> {
