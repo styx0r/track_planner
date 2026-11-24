@@ -133,6 +133,16 @@ function computeRowNumbers(items: { type: string; moderation_text?: { text?: str
   return items.map((item) => (isPauseModeration(item) ? ((n = 0), null) : ++n));
 }
 
+// Text for a new empty moderation appended to the program, so it can be told apart
+// in the moderation DB: "[Platzhalter] <Programm> – Nr. 5 (nach „<letztes Lied>“)".
+// Numbers restart after a pause, so the preceding song makes the position unambiguous.
+function placeholderModerationText(programName: string, items: PlaylistItemFormItem[]): string {
+  const nums = computeRowNumbers([...items, { type: 'MODERATION_TEXT' }]);
+  const lastTrackTitle = [...items].reverse().find((item) => item.type === 'TRACK')?.music?.title;
+  return `[Platzhalter] ${programName.trim() || 'Programm'} – Nr. ${nums[nums.length - 1]}`
+    + (lastTrackTitle ? ` (nach „${lastTrackTitle}“)` : '');
+}
+
 function formatTotalDuration(items: PlaylistItemData[]): string {
   const totalSeconds = items
     .filter((i) => i.type === 'TRACK')
@@ -385,7 +395,7 @@ export default function PlaylistsPage() {
               author: '',
               creation_date: new Date().toISOString(),
               category,
-              text: '',
+              text: placeholderModerationText(playlistForm.name, playlistItems),
             },
           },
         }),
@@ -414,7 +424,7 @@ export default function PlaylistsPage() {
     } catch (error) {
       setSnackbar({ open: true, message: `Leere Moderation anlegen fehlgeschlagen: ${error}`, severity: 'error' });
     }
-  }, [moderationCategories]);
+  }, [moderationCategories, playlistForm.name, playlistItems]);
 
   const moveItem = useCallback((index: number, direction: -1 | 1) => {
     setPlaylistItems((prev) => {
