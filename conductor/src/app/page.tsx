@@ -11,6 +11,7 @@ import {
 } from '../lib/types';
 import { ConductorSheetViewer } from '../components/ConductorSheetViewer';
 import { WaveformProgressBar } from '../components/WaveformProgressBar';
+import { ModerationBody } from '../components/ModerationBody';
 import styles from './page.module.css';
 
 function useClock() {
@@ -486,7 +487,9 @@ export default function ConductorPage() {
       <main className={styles.main}>
         {isModeration ? (
           <div className={styles.moderationContent}>
-            <div className={styles.moderationText}>{displayModerationText}</div>
+            <div className={styles.moderationText}>
+              <ModerationBody text={displayModerationText ?? ''} />
+            </div>
           </div>
         ) : (
           <ConductorSheetViewer sheets={effectiveSheets} />
