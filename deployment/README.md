@@ -100,8 +100,10 @@ docker compose up -d --build            # rebuilds changed images, restarts only
 - **Backoffice → backend.** The backoffice container talks to the backend via
   `BACKEND_URL`, default `http://backend:3333` inside the compose network.
   Override with `BACKOFFICE_BACKEND_URL` when the backend runs elsewhere.
-- **CPU temperature widget** expects a LibreHardwareMonitor endpoint and is
-  Windows-specific; leave `CPU_TEMP_URL` unset in containers.
+- **CPU temperature widget.** On a Linux host the backend reads the CPU
+  temperature from `/sys` (also inside the container); nothing to configure.
+  On Windows it uses a LibreHardwareMonitor endpoint; set `CPU_TEMP_URL` only
+  when the backend container runs on a Windows host.
 - **Windows production (`prod-all.ps1`)** keeps working unchanged: it runs
   `docker compose` in this folder without a `.env`, so only infra starts and
   the apps run natively as before.

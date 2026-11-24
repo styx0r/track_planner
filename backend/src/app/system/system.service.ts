@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 
 export interface CpuTemperature {
   /** CPU temperature in °C, or null if unavailable */
@@ -65,22 +67,85 @@ function pickCpuTemp(sensors: TempSensor[]): TempSensor | null {
   );
 }
 
+// Linux sysfs: hwmon drivers that report the CPU's own temperature
+// (Intel, AMD, AMD alt. driver, Raspberry Pi / ARM SoCs).
+const SYSFS_CLASS = '/sys/class';
+const CPU_HWMON_NAMES = /^(coretemp|k10temp|zenpower|cpu_thermal|soc_thermal)$/i;
+// Fallback when no hwmon driver is loaded.
+const CPU_THERMAL_ZONE_TYPES = /^(x86_pkg_temp|cpu[-_]thermal|soc[-_]thermal)$/i;
+
+async function readText(file: string): Promise<string | null> {
+  try {
+    return (await fs.readFile(file, 'utf8')).trim();
+  } catch {
+    return null;
+  }
+}
+
+/** sysfs temperatures are integers in millidegrees Celsius. */
+async function readMilliCelsius(file: string): Promise<number | null> {
+  const raw = await readText(file);
+  const n = raw === null ? NaN : Number(raw);
+  return Number.isFinite(n) ? n / 1000 : null;
+}
+
+async function listDir(dir: string): Promise<string[]> {
+  return fs.readdir(dir).catch(() => []);
+}
+
+/**
+ * Linux: read CPU temperatures from sysfs. Also works inside Docker on a
+ * Linux host, since containers see the host's (read-only) /sys.
+ */
+async function readLinuxCpuTemps(): Promise<TempSensor[]> {
+  const sensors: TempSensor[] = [];
+
+  const hwmonRoot = path.join(SYSFS_CLASS, 'hwmon');
+  for (const hwmon of await listDir(hwmonRoot)) {
+    const dir = path.join(hwmonRoot, hwmon);
+    const name = await readText(path.join(dir, 'name'));
+    if (!name || !CPU_HWMON_NAMES.test(name)) continue;
+
+    for (const file of await listDir(dir)) {
+      const match = file.match(/^(temp\d+)_input$/);
+      if (!match) continue;
+      const celsius = await readMilliCelsius(path.join(dir, file));
+      if (celsius === null) continue;
+      // Labels like "Package id 0", "Core 0" (Intel) or "Tctl"/"Tccd1" (AMD)
+      const label = await readText(path.join(dir, `${match[1]}_label`));
+      sensors.push({ text: label || name, celsius });
+    }
+  }
+  if (sensors.length > 0) return sensors;
+
+  const thermalRoot = path.join(SYSFS_CLASS, 'thermal');
+  for (const zone of await listDir(thermalRoot)) {
+    if (!zone.startsWith('thermal_zone')) continue;
+    const type = await readText(path.join(thermalRoot, zone, 'type'));
+    if (!type || !CPU_THERMAL_ZONE_TYPES.test(type)) continue;
+    const celsius = await readMilliCelsius(path.join(thermalRoot, zone, 'temp'));
+    if (celsius !== null) sensors.push({ text: type, celsius });
+  }
+  return sensors;
+}
+
 @Injectable()
 export class SystemService {
   private readonly logger = new Logger(SystemService.name);
   private readonly url: string;
+  private readonly urlConfigured: boolean;
   private readonly timeoutMs = 1500;
   private readonly cacheTtlMs = 2000;
   private cache: { at: number; data: CpuTemperature } | null = null;
 
   constructor(private readonly configService: ConfigService) {
     // Native-Windows backend: 127.0.0.1 (NOT "localhost" — Node may resolve that
-    // to IPv6 ::1 while LHM only listens on IPv4). In a Docker container, point
-    // this at the host via CPU_TEMP_URL=http://host.docker.internal:8085/data.json
-    this.url = this.configService.get<string>(
-      'CPU_TEMP_URL',
-      'http://127.0.0.1:8085/data.json',
-    );
+    // to IPv6 ::1 while LHM only listens on IPv4). In a Docker container on a
+    // Windows host, point this at the host via
+    // CPU_TEMP_URL=http://host.docker.internal:8085/data.json
+    const configuredUrl = this.configService.get<string>('CPU_TEMP_URL')?.trim();
+    this.urlConfigured = !!configuredUrl;
+    this.url = configuredUrl || 'http://127.0.0.1:8085/data.json';
   }
 
   async getCpuTemperature(): Promise<CpuTemperature> {
@@ -89,8 +154,23 @@ export class SystemService {
       return this.cache.data;
     }
 
-    let data: CpuTemperature = { celsius: null, label: null, available: false };
+    // An explicit CPU_TEMP_URL always wins. Otherwise Linux reads sysfs and
+    // Windows asks LibreHardwareMonitor on localhost.
+    const sensors = this.urlConfigured || process.platform !== 'linux'
+      ? await this.readLhmCpuTemps()
+      : await readLinuxCpuTemps();
 
+    const pick = pickCpuTemp(sensors);
+    const data: CpuTemperature = pick
+      ? { celsius: Math.round(pick.celsius), label: pick.text, available: true }
+      : { celsius: null, label: null, available: false };
+
+    this.cache = { at: now, data };
+    return data;
+  }
+
+  private async readLhmCpuTemps(): Promise<TempSensor[]> {
+    const sensors: TempSensor[] = [];
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), this.timeoutMs);
@@ -98,13 +178,7 @@ export class SystemService {
       clearTimeout(timer);
 
       if (res.ok) {
-        const json = (await res.json()) as LhmNode;
-        const sensors: TempSensor[] = [];
-        collectCpuTemps(json, false, sensors);
-        const pick = pickCpuTemp(sensors);
-        if (pick) {
-          data = { celsius: Math.round(pick.celsius), label: pick.text, available: true };
-        }
+        collectCpuTemps((await res.json()) as LhmNode, false, sensors);
       } else {
         this.logger.debug(`CPU temp source returned HTTP ${res.status}`);
       }
@@ -112,8 +186,6 @@ export class SystemService {
       // LibreHardwareMonitor not running / unreachable / wrong URL — degrade gracefully.
       this.logger.debug(`CPU temp unavailable: ${(err as Error).message}`);
     }
-
-    this.cache = { at: now, data };
-    return data;
+    return sensors;
   }
 }

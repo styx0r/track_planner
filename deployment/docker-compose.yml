@@ -142,7 +142,8 @@ services:
       # Max upload size per file in MB (WAV needs ~10-17 MB per minute)
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-500}
 
-      # Optional: LibreHardwareMonitor JSON endpoint for the CPU temperature widget.
+      # CPU temperature: read from /sys automatically on a Linux host.
+      # Only on a Windows host: LibreHardwareMonitor JSON endpoint.
       # CPU_TEMP_URL: http://host.docker.internal:8085/data.json
 
     # --- Audio output -------------------------------------------------------
